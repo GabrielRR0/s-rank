@@ -6,8 +6,10 @@ import { validateFileInput, validateTextInput } from '../../utils/validators/val
 // Minutos - mismo set que ALLOWED_EXPIRATIONS_MINUTES en el backend
 // (backend/app/schemas/sharedContent/shared_content_schemas.py). Duplicado a
 // proposito (igual que las traducciones): el backend es quien realmente
-// valida, esto solo arma las opciones de ExpirationSelector.vue.
-export const EXPIRATION_OPTIONS_MINUTES = [10, 60, 60 * 24, 60 * 24 * 3, 60 * 24 * 7] as const
+// valida, esto solo arma las opciones de ExpirationSelector.vue. Techo de
+// 24hs a proposito - contenido delicado, se espera que se vea casi de
+// inmediato, no que quede disponible dias enteros.
+export const EXPIRATION_OPTIONS_MINUTES = [10, 60, 60 * 6, 60 * 24] as const
 
 export function useUpload() {
   const { t } = useLocale()
@@ -23,6 +25,9 @@ export function useUpload() {
   const creando = ref(false)
   const resultado = ref<CreateShareResult | null>(null)
   const errorCreacion = ref('')
+  // null mientras Turnstile esta apagado (default) o todavia no resuelto -
+  // sharing.service.ts solo lo manda si tiene un valor real.
+  const turnstileToken = ref<string | null>(null)
 
   function elegirArchivo(nuevo: File | null) {
     archivo.value = nuevo
@@ -50,8 +55,8 @@ export function useUpload() {
       const passwordAEnviar = protegerConPassword.value && password.value ? password.value : null
       resultado.value =
         modo.value === 'text'
-          ? await createTextShare(texto.value, passwordAEnviar, expiracionMinutos.value)
-          : await createFileShare(archivo.value!, passwordAEnviar, expiracionMinutos.value)
+          ? await createTextShare(texto.value, passwordAEnviar, expiracionMinutos.value, turnstileToken.value)
+          : await createFileShare(archivo.value!, passwordAEnviar, expiracionMinutos.value, turnstileToken.value)
     } catch (error) {
       errorCreacion.value = error instanceof Error ? error.message : 'Error'
     } finally {
@@ -69,6 +74,7 @@ export function useUpload() {
     errores.value = []
     resultado.value = null
     errorCreacion.value = ''
+    turnstileToken.value = null
   }
 
   return {
@@ -82,6 +88,7 @@ export function useUpload() {
     creando,
     resultado,
     errorCreacion,
+    turnstileToken,
     elegirArchivo,
     crear,
     reiniciar,

@@ -95,6 +95,30 @@ def test_get_status_de_share_con_password_indica_requires_password():
     print("[test] OK: requires_password=true, sin revelar contenido.")
 
 
+def test_get_status_de_archivo_con_password_oculta_el_nombre():
+    print("\n[test] GET status de un archivo protegido con contraseña...")
+    files = {"file": ("contrato_confidencial.pdf", io.BytesIO(b"contenido"), "application/pdf")}
+    data = {"content_type": "file", "expires_in_minutes": "60", "password": "secreta123"}
+    share_id = client.post("/api/shared-content", data=data, files=files).json()["id"]
+
+    response = client.get(f"/api/shared-content/{share_id}")
+
+    assert response.json()["file_name"] is None
+    print("[test] OK: file_name oculto - no se filtra el nombre antes de verificar la contraseña.")
+
+
+def test_get_status_de_archivo_sin_password_muestra_el_nombre():
+    print("\n[test] GET status de un archivo sin contraseña...")
+    files = {"file": ("vacaciones.jpg", io.BytesIO(b"contenido"), "image/jpeg")}
+    data = {"content_type": "file", "expires_in_minutes": "60"}
+    share_id = client.post("/api/shared-content", data=data, files=files).json()["id"]
+
+    response = client.get(f"/api/shared-content/{share_id}")
+
+    assert response.json()["file_name"] == "vacaciones.jpg"
+    print("[test] OK: sin contraseña, el nombre si se muestra.")
+
+
 def test_reveal_sin_password_devuelve_el_texto():
     print("\n[test] POST /api/shared-content/{id}/reveal (texto, sin password)...")
     share_id = _create_text_share(text="secreto").json()["id"]

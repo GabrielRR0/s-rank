@@ -32,7 +32,7 @@ describe('useUpload', () => {
 
     await crear()
 
-    expect(createTextShare).toHaveBeenCalledWith('hola mundo', null, 1440)
+    expect(createTextShare).toHaveBeenCalledWith('hola mundo', null, 1440, null)
     expect(resultado.value?.id).toBe('abc')
   })
 
@@ -45,7 +45,7 @@ describe('useUpload', () => {
 
     await crear()
 
-    expect(createTextShare).toHaveBeenCalledWith('hola', null, 60)
+    expect(createTextShare).toHaveBeenCalledWith('hola', null, 60, null)
   })
 
   it('manda la contraseña cuando el toggle esta activo y tiene texto', async () => {
@@ -57,7 +57,7 @@ describe('useUpload', () => {
 
     await crear()
 
-    expect(createTextShare).toHaveBeenCalledWith('hola', 'secreta123', 60)
+    expect(createTextShare).toHaveBeenCalledWith('hola', 'secreta123', 60, null)
   })
 
   it('crea un share de archivo cuando el modo es file', async () => {
@@ -68,7 +68,7 @@ describe('useUpload', () => {
 
     await crear()
 
-    expect(createFileShare).toHaveBeenCalledWith(archivo.value, null, 60)
+    expect(createFileShare).toHaveBeenCalledWith(archivo.value, null, 60, null)
   })
 
   it('guarda el mensaje de error si el servicio falla', async () => {

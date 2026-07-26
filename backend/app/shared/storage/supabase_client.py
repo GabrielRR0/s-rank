@@ -15,6 +15,7 @@ class StorageClient(Protocol):
     def insert_share(self, record: dict) -> dict: ...
     def get_share(self, share_id: str) -> dict | None: ...
     def mark_viewed_if_unseen(self, share_id: str) -> dict | None: ...
+    def increment_failed_attempts(self, share_id: str) -> int: ...
     def delete_share_row(self, share_id: str) -> None: ...
     def upload_file(self, path: str, content: bytes, content_type: str) -> None: ...
     def download_file(self, path: str) -> bytes: ...
@@ -57,6 +58,24 @@ class SupabaseStorageClient:
             .execute()
         )
         return response.data[0] if response.data else None
+
+    def increment_failed_attempts(self, share_id: str) -> int:
+        # Lectura + escritura, no un UPDATE atomico via RPC: a diferencia de
+        # mark_viewed_if_unseen, una carrera improbable aca solo le regala
+        # a un atacante un intento extra, no una fuga de contenido - no
+        # amerita la complejidad de una funcion SQL propia (ver
+        # services/sharedContent/security/lockout.py).
+        current = self.get_share(share_id)
+        if current is None:
+            return 0
+        new_count = current.get("failed_password_attempts", 0) + 1
+        response = (
+            self._client.table(self.TABLE)
+            .update({"failed_password_attempts": new_count})
+            .eq("id", share_id)
+            .execute()
+        )
+        return response.data[0]["failed_password_attempts"] if response.data else new_count
 
     def delete_share_row(self, share_id: str) -> None:
         self._client.table(self.TABLE).delete().eq("id", share_id).execute()

@@ -54,6 +54,7 @@ interface CreateShareParams {
   file?: File
   password: string | null
   expiresInMinutes: number
+  turnstileToken?: string | null
 }
 
 async function createShare(params: CreateShareParams): Promise<CreateShareResult> {
@@ -65,6 +66,10 @@ async function createShare(params: CreateShareParams): Promise<CreateShareResult
   if (params.text !== undefined) form.set('text', params.text)
   if (params.file !== undefined) form.set('file', params.file)
   if (params.password) form.set('password', params.password)
+  // Solo se manda si Turnstile esta habilitado del lado del frontend - si
+  // esta apagado (default), turnstileToken siempre es null/undefined y el
+  // backend tampoco lo exige (ver useTurnstile.ts y backend/README.md #11).
+  if (params.turnstileToken) form.set('turnstile_token', params.turnstileToken)
 
   const response = await fetch(`${API_BASE_URL}/api/shared-content`, { method: 'POST', body: form })
   if (!response.ok) {
@@ -78,16 +83,18 @@ export function createTextShare(
   text: string,
   password: string | null,
   expiresInMinutes: number,
+  turnstileToken?: string | null,
 ): Promise<CreateShareResult> {
-  return createShare({ contentType: 'text', text, password, expiresInMinutes })
+  return createShare({ contentType: 'text', text, password, expiresInMinutes, turnstileToken })
 }
 
 export function createFileShare(
   file: File,
   password: string | null,
   expiresInMinutes: number,
+  turnstileToken?: string | null,
 ): Promise<CreateShareResult> {
-  return createShare({ contentType: 'file', file, password, expiresInMinutes })
+  return createShare({ contentType: 'file', file, password, expiresInMinutes, turnstileToken })
 }
 
 export async function fetchShareStatus(id: string): Promise<ShareStatus> {

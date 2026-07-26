@@ -46,6 +46,7 @@ Corre Vitest una sola vez sobre los archivos `*.spec.ts` co-ubicados junto al c�
 Copiar `.env.example` a `.env` solo si el backend **no** está en `localhost:8000`:
 
 - `VITE_API_BASE_URL`: URL base del backend. Sin definirla, las llamadas usan rutas relativas, que funcionan en dev gracias al proxy. **En producción es obligatoria** si el frontend y el backend quedan en dominios distintos.
+- `VITE_TURNSTILE_ENABLED` / `VITE_TURNSTILE_SITE_KEY`: captcha invisible de Cloudflare en la creación de shares, apagado por defecto (ver `backend/README.md` sección 11 y `src/composables/fileSharing/README.md`).
 
 ## 5. Estructura del proyecto
 
@@ -72,3 +73,5 @@ src/
 - **`prefers-reduced-motion` sí se respeta** (a diferencia de `contract-generator`, que lo desactivó por pedido puntual del usuario en ese proyecto): se sigue la regla tal como está en `../DESIGN.md`.
 - **Acento violeta**, distinto del azul de `contract-generator`, para diferenciar visualmente este proyecto dentro del portafolio (`DESIGN.md` #1.5).
 - **`VITE_API_BASE_URL` opcional en dev**: mismo motivo que `contract-generator` — cero configuración para levantar el proyecto localmente.
+- **Expiración tope de 24hs**: el contenido de este proyecto es delicado y se espera que el destinatario lo vea casi de inmediato (ver `backend/README.md`).
+- **Turnstile apagado por defecto, activable sin tocar código**: `TurnstileWidget.vue` ni se monta ni carga el script de Cloudflare a menos que `VITE_TURNSTILE_ENABLED=true` — el proyecto depende del rate limiting y el resto del hardening del backend por defecto.

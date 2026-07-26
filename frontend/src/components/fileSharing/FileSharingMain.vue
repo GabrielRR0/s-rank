@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { useLocale } from '../../i18n/useLocale'
 import { useUpload } from '../../composables/fileSharing/useUpload'
+import { TURNSTILE_ENABLED } from '../../composables/fileSharing/useTurnstile'
 import BaseAlert from '../ui/BaseAlert.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseCard from '../ui/BaseCard.vue'
 import ExpirationSelector from './ExpirationSelector.vue'
 import PasswordToggle from './PasswordToggle.vue'
 import ShareResult from './ShareResult.vue'
+import TurnstileWidget from './TurnstileWidget.vue'
 import UploadZone from './UploadZone.vue'
 
 const { t } = useLocale()
@@ -21,6 +23,7 @@ const {
   creando,
   resultado,
   errorCreacion,
+  turnstileToken,
   elegirArchivo,
   crear,
   reiniciar,
@@ -66,6 +69,11 @@ const {
 
       <PasswordToggle v-model:activo="protegerConPassword" v-model:password="password" />
       <ExpirationSelector v-model="expiracionMinutos" />
+
+      <!-- Apagado por defecto (TURNSTILE_ENABLED via VITE_TURNSTILE_ENABLED)
+           - sin la variable de entorno, este widget ni se monta ni carga el
+           script de Cloudflare (ver composables/fileSharing/useTurnstile.ts). -->
+      <TurnstileWidget v-if="TURNSTILE_ENABLED" @token="turnstileToken = $event" />
 
       <BaseAlert :mensajes="errores.length ? errores : errorCreacion ? [errorCreacion] : []" />
 

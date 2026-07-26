@@ -10,6 +10,7 @@ from app.schemas.sharedContent.shared_content_schemas import (
 )
 from app.services.sharedContent import shared_content_service
 from app.services.sharedContent.errors import ShareUnauthorizedError, ShareUnavailableError
+from app.services.sharedContent.security.turnstile import verify_turnstile_token
 from app.shared.storage.supabase_client import StorageClient, get_storage_client
 
 router = APIRouter(prefix="/api/shared-content", tags=["shared-content"])
@@ -25,11 +26,16 @@ async def create_share(
     file: UploadFile | None = File(None),
     password: str | None = Form(None),
     expires_in_minutes: int = Form(...),
+    turnstile_token: str | None = Form(None),
     client: StorageClient = Depends(get_storage_client),
 ) -> CreateShareResponse:
     # multipart/form-data (no JSON): FastAPI no permite mezclar un body JSON
     # con UploadFile en el mismo endpoint, asi que el mismo formato de body
     # se usa para texto y archivo por igual (ver schemas/sharedContent/README.md).
+    # No-op si TURNSTILE_ENABLED esta apagado (default) - ver security/turnstile.py.
+    if not await verify_turnstile_token(turnstile_token):
+        raise HTTPException(status_code=422, detail="Verificacion anti-bot fallida.")
+
     file_bytes = await file.read() if file is not None else None
     try:
         return shared_content_service.create_share(
@@ -71,7 +77,9 @@ def reveal(
     client: StorageClient = Depends(get_storage_client),
 ):
     try:
-        result = shared_content_service.reveal_share(share_id, body.password, client)
+        result = shared_content_service.reveal_share(
+            share_id, body.password, client, settings.share_password_max_attempts
+        )
     except ShareUnavailableError as exc:
         raise HTTPException(status_code=410, detail=str(exc)) from exc
     except ShareUnauthorizedError as exc:

@@ -2,15 +2,15 @@
 
 ## Problema que resuelve
 
-Compartir un archivo, texto o imagen de forma segura y efímera, sin depender de servicios externos ni dejar rastro permanente. El contenido se ve **una sola vez** (o expira por tiempo, lo que ocurra primero) y se borra físicamente del storage justo después, nunca queda "oculto" en algún lado.
+Compartir un archivo, texto o imagen de forma segura y efímera, sin depender de servicios externos ni dejar rastro permanente. El contenido se ve **una sola vez** (o expira en máximo 24hs, lo que ocurra primero) y se borra físicamente del storage justo después, nunca queda "oculto" en algún lado.
 
 ## Estado actual
 
-Camino feliz completo: compartir texto o un archivo (hasta 10MB) con contraseña opcional y expiración configurable, generar el enlace, y consumirlo del lado del destinatario — incluyendo el caso de contraseña incorrecta (no quema la vista) y el de dos accesos casi simultáneos al mismo enlace (solo uno gana).
+Camino feliz completo: compartir texto o un archivo (hasta 10MB) con contraseña opcional y expiración configurable (hasta 24hs), generar el enlace, y consumirlo del lado del destinatario — incluyendo el caso de contraseña incorrecta (no quema la vista, pero sí cuenta para el bloqueo por intentos), el de dos accesos casi simultáneos al mismo enlace (solo uno gana), y el contenido encriptado de punta a punta en el storage.
 
 ## Stack
 
-- Backend: FastAPI + [Supabase](https://supabase.com) (Postgres para metadata, Storage para los archivos) + `bcrypt` para las contraseñas.
+- Backend: FastAPI + [Supabase](https://supabase.com) (Postgres para metadata, Storage para los archivos) + `bcrypt` para las contraseñas + `cryptography` (AES-256-GCM) para encriptar el contenido en reposo.
 - Frontend: Vue 3 (Composition API + `<script setup>`) + Vite + TypeScript.
 
 ## Diseño visual
@@ -53,3 +53,6 @@ Abrir la URL que imprime Vite (por defecto `http://localhost:5173`), compartir u
 - **Sin frontend router**: la app tiene exactamente dos pantallas (crear un share, verlo) y nunca se navega entre ellas del lado del cliente - una librería de ruteo completa sería sobredimensionada.
 - **Sin worker de limpieza persistente**: la expiración se resuelve on-demand, en el próximo acceso real al link - cumple la regla del portafolio de cero colas/workers 24/7, con la limitación conocida de que un link nunca vuelto a abrir queda en Supabase indefinidamente (ver `backend/app/services/sharedContent/cleanup/README.md`).
 - **Mismas convenciones estructurales que `contract-generator`**: sin `__init__.py` en el backend, tipo→dominio en ambas capas, un `README.md` por carpeta con lógica real, y el mismo patrón de deploy (`vercel.json` con dos servicios).
+- **Expiración tope de 24hs (antes hasta 7 días)**: el contenido de este proyecto es delicado y se espera que el destinatario lo vea casi de inmediato.
+- **Todo el contenido se encripta (AES-256-GCM) antes de guardarse en Supabase**, con una clave que vive solo en el backend - ver `backend/README.md` sección 11 para la explicación completa, incluyendo por qué "solo mi frontend puede llamar a esto" no es una garantía real para una SPA pública y qué capas honestas se suman en su lugar (chequeo de `Origin`, bloqueo por intentos fallidos por-share, Turnstile opcional apagado por defecto).
+- **Nombres de archivo sanitizados y `file_name` oculto hasta verificar contraseña**: dos correcciones de seguridad concretas encontradas al revisar el código (path traversal y fuga de metadata), no solo hardening genérico.

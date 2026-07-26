@@ -9,6 +9,7 @@ Componentes del dominio "compartir archivos" - dos flujos independientes: crear 
 - **`PasswordToggle.vue`**: switch que muestra/oculta un campo de contraseña. Dos `v-model` (`activo`, `password`).
 - **`ExpirationSelector.vue`**: grupo de botones con las duraciones permitidas (mismas que `ALLOWED_EXPIRATIONS_MINUTES` del backend).
 - **`ShareResult.vue`**: enlace generado + botón de copiar + opción de compartir algo más.
+- **`TurnstileWidget.vue`**: captcha invisible de Cloudflare, montado condicionalmente en `FileSharingMain.vue` solo si `TURNSTILE_ENABLED` está activo (ver `composables/fileSharing/useTurnstile.ts`). Apagado por defecto - con el flag apagado este componente ni se renderiza.
 - **`ViewContent.vue`**: pantalla de quien abre el link (`/s/:id`, montada desde `App.vue`). Cubre todos los estados de `useOneTimeView` - cargando, no disponible, pide contraseña, lista para ver, y el contenido ya revelado (texto con `<pre>`, imagen inline, o botón de descarga para cualquier otro archivo).
 
 ## Por qué `ViewContent.vue` siempre exige un click en "Ver contenido", incluso sin contraseña

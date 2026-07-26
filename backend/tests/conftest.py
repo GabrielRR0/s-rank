@@ -1,7 +1,10 @@
+import base64
+import os
 from datetime import datetime, timezone
 
 import pytest
 
+from app.config import settings
 from app.core.rate_limit import limiter
 from app.main import app
 from app.shared.storage.supabase_client import get_storage_client
@@ -35,6 +38,13 @@ class FakeStorageClient:
             return None
         row["viewed_at"] = datetime.now(timezone.utc).isoformat()
         return dict(row)
+
+    def increment_failed_attempts(self, share_id: str) -> int:
+        row = self.rows.get(share_id)
+        if row is None:
+            return 0
+        row["failed_password_attempts"] = row.get("failed_password_attempts", 0) + 1
+        return row["failed_password_attempts"]
 
     def delete_share_row(self, share_id: str) -> None:
         self.rows.pop(share_id, None)
@@ -73,3 +83,15 @@ def _reset_rate_limiter():
     # se dispara un 429 o no.
     limiter.reset()
     yield
+
+
+@pytest.fixture(autouse=True)
+def _test_encryption_key(monkeypatch):
+    # create_share/reveal_share encriptan/desencriptan de verdad (no hay un
+    # "fake" para esto, es logica pura sin dependencia externa) - los tests
+    # necesitan una clave con el formato correcto para poder ejercitar ese
+    # camino. No hace falta que sea la clave real de ningun despliegue. Los
+    # tests que prueban especificamente el caso de clave faltante/invalida
+    # (ver security/test_encryption.py) la pisan puntualmente con su propio
+    # monkeypatch, que gana sobre este porque corre despues.
+    monkeypatch.setattr(settings, "master_encryption_key", base64.b64encode(os.urandom(32)).decode())

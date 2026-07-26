@@ -6,7 +6,10 @@ from pydantic import BaseModel
 # fuente de verdad server-side; el frontend ofrece las mismas opciones en
 # ExpirationSelector.vue por UX, pero el backend nunca confia en un valor de
 # expiracion que no este en este set (ver shared_content_service.create_share).
-ALLOWED_EXPIRATIONS_MINUTES = {10, 60, 60 * 24, 60 * 24 * 3, 60 * 24 * 7}
+# Techo de 24hs a proposito: el contenido que maneja este proyecto es
+# delicado y se espera que el destinatario lo vea casi de inmediato, no que
+# quede disponible dias enteros "por las dudas".
+ALLOWED_EXPIRATIONS_MINUTES = {10, 60, 60 * 6, 60 * 24}
 
 
 class CreateShareResponse(BaseModel):

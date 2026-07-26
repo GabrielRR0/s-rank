@@ -7,7 +7,7 @@ describe('ExpirationSelector', () => {
     const wrapper = mount(ExpirationSelector, { props: { modelValue: 60 } })
 
     const opciones = wrapper.findAll('.opcion-expiracion')
-    expect(opciones).toHaveLength(5)
+    expect(opciones).toHaveLength(4)
     expect(opciones[1].classes()).toContain('activo')
     expect(opciones[0].classes()).not.toContain('activo')
   })
@@ -17,6 +17,6 @@ describe('ExpirationSelector', () => {
 
     await wrapper.findAll('.opcion-expiracion')[3].trigger('click')
 
-    expect(wrapper.emitted('update:modelValue')).toEqual([[4320]])
+    expect(wrapper.emitted('update:modelValue')).toEqual([[1440]])
   })
 })

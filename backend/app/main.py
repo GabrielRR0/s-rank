@@ -14,6 +14,14 @@ app = FastAPI(title="File Sharer API")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# localhost:5173 siempre permitido (dev); FRONTEND_URL (produccion) se suma
+# solo si esta configurada, sin duplicar si coinciden. Se calcula antes de
+# los middlewares porque tanto CORS como verify_origin (mas abajo) la usan.
+_dev_origin = "http://localhost:5173"
+allowed_origins = {_dev_origin}
+if settings.frontend_url:
+    allowed_origins.add(settings.frontend_url)
+
 # Mismo orden de middlewares que contract-generator (ver ese proyecto para
 # el detalle completo): Starlette envuelve en orden inverso al que se
 # agregan, y CORS tiene que quedar afuera de todo -> se agrega al final,
@@ -36,20 +44,35 @@ async def reject_oversized_body(request: Request, call_next):
 
 
 @app.middleware("http")
+async def verify_origin(request: Request, call_next):
+    # Capa adicional a CORS, no un reemplazo: CORS solo le impide al
+    # JavaScript de otro sitio LEER la respuesta, pero el request en si se
+    # sigue procesando igual (un formulario oculto en una pagina maliciosa
+    # podria disparar un POST "a ciegas" contra esta API usando el
+    # navegador de una victima). Sin header Origin (curl, server-to-server,
+    # /docs) no hay forma de distinguirlo de un cliente legitimo sin
+    # navegador, asi que se deja pasar - esta capa apunta puntualmente a
+    # bloquear paginas de OTROS sitios actuando desde un navegador. No es
+    # (ni pretende ser) una forma de garantizar "solo mi frontend puede
+    # llamar a esto": un atacante decidido con curl puede mandar cualquier
+    # header Origin que quiera. Ver README para la explicacion completa.
+    origin = request.headers.get("origin")
+    if origin is not None and origin not in allowed_origins:
+        return JSONResponse(status_code=403, content={"detail": "Origen no permitido."})
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
+    # Efectivo una vez desplegado detras de HTTPS (Vercel lo da por
+    # defecto); el navegador la ignora en dev sobre http simple.
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
-
-# localhost:5173 siempre permitido (dev); FRONTEND_URL (produccion) se suma
-# solo si esta configurada, sin duplicar si coinciden.
-_dev_origin = "http://localhost:5173"
-allowed_origins = {_dev_origin}
-if settings.frontend_url:
-    allowed_origins.add(settings.frontend_url)
 
 app.add_middleware(
     CORSMiddleware,

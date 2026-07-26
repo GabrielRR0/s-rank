@@ -61,4 +61,29 @@ def test_get_status_incluye_headers_de_seguridad():
     assert response.status_code == 200
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
-    print("[test] OK: headers de seguridad presentes.")
+    assert "max-age" in response.headers["strict-transport-security"]
+    print("[test] OK: headers de seguridad presentes, incluyendo Strict-Transport-Security.")
+
+
+def test_origin_no_permitido_responde_403():
+    print("\n[test] GET con header Origin de un sitio no permitido...")
+    response = client.get("/api/shared-content/no-existe", headers={"Origin": "https://sitio-malicioso.com"})
+
+    assert response.status_code == 403
+    print("[test] OK: status 403 como se esperaba.")
+
+
+def test_origin_permitido_no_es_bloqueado():
+    print("\n[test] GET con header Origin del frontend de desarrollo...")
+    response = client.get("/api/shared-content/no-existe", headers={"Origin": "http://localhost:5173"})
+
+    assert response.status_code == 200
+    print("[test] OK: status 200, el origen permitido no fue bloqueado.")
+
+
+def test_sin_header_origin_no_es_bloqueado():
+    print("\n[test] GET sin header Origin (como haria curl)...")
+    response = client.get("/api/shared-content/no-existe")
+
+    assert response.status_code == 200
+    print("[test] OK: status 200 - sin Origin no se puede distinguir de un cliente legitimo sin navegador.")

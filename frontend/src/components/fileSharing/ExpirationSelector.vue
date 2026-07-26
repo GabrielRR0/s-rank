@@ -10,9 +10,8 @@ const { t } = useLocale()
 const ETIQUETAS: Record<number, string> = {
   10: 'expiration10m',
   60: 'expiration1h',
+  360: 'expiration6h',
   1440: 'expiration1d',
-  4320: 'expiration3d',
-  10080: 'expiration7d',
 }
 
 const opciones = computed(() =>
