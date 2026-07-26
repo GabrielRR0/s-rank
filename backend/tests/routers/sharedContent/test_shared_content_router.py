@@ -52,6 +52,18 @@ def test_archivo_mayor_a_10mb_es_rechazado_con_mensaje_claro():
     print(f"[test] OK: status {response.status_code} como se esperaba.")
 
 
+def test_archivo_ejecutable_es_rechazado_con_mensaje_claro():
+    print("\n[test] POST /api/shared-content con un .exe...")
+    files = {"file": ("actualizacion.exe", io.BytesIO(b"MZ..."), "application/octet-stream")}
+    data = {"content_type": "file", "expires_in_minutes": "60"}
+
+    response = client.post("/api/shared-content", data=data, files=files)
+
+    assert response.status_code == 422
+    assert "no esta permitido" in response.json()["detail"] or "no está permitido" in response.json()["detail"]
+    print("[test] OK: status 422, tipo de archivo peligroso rechazado.")
+
+
 def test_expiracion_no_permitida_devuelve_422():
     print("\n[test] POST /api/shared-content con expires_in_minutes invalido...")
     response = _create_text_share(expires_in_minutes=999)

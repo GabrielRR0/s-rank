@@ -10,6 +10,7 @@ Todas las piezas de seguridad del dominio: proteger un share con contraseña, ga
 - **`safe_filename.py`**: `sanitize_file_name(file_name)` - neutraliza intentos de path traversal en el nombre de archivo subido antes de usarlo para construir la ruta de Storage.
 - **`lockout.py`**: `register_failed_attempt(share_id, max_attempts, client)` - lleva la cuenta de intentos de contraseña incorrecta por-share; si se supera el máximo, el share se autodestruye.
 - **`turnstile.py`**: `verify_turnstile_token(token)` - verificación anti-bot opcional (Cloudflare Turnstile) en la creación de shares, apagada por defecto vía `TURNSTILE_ENABLED`.
+- **`blocked_file_types.py`**: `is_blocked_file_type(file_name, mime_type)` - rechaza extensiones/Content-Type de ejecutables, scripts y documentos de Office con macros antes de aceptar un archivo. Ver "Por qué se bloquea por extensión y no se escanea el contenido" más abajo.
 
 ## Por qué la vista única se consume en el `reveal`, no en el simple `GET` de estado
 
@@ -34,3 +35,7 @@ El rate limit de `/reveal` (ver `app/core/rate_limit.py`) es por IP - un atacant
 ## Por qué Turnstile está apagado por defecto
 
 El proyecto depende del rate limiting y el resto de estas protecciones por defecto - Turnstile suma una dependencia externa (cuenta de Cloudflare) y un paso extra de UI, así que queda como capa opcional activable sin tocar código (`TURNSTILE_ENABLED`/`VITE_TURNSTILE_ENABLED`), no como requisito.
+
+## Por qué se bloquea por extensión/Content-Type y no se escanea el contenido real del archivo
+
+Un escaneo de malware de verdad (tipo VirusTotal) necesitaría mandar el archivo en texto plano a un servicio externo *antes* de encriptarlo - rompería la promesa central del proyecto de que nadie más que el destinatario ve el contenido, y el tier gratuito de esas APIs (ej. VirusTotal, 4 requests/minuto) ni siquiera alcanza para una demo con tráfico real. `blocked_file_types.py` es una alternativa deliberadamente más modesta: rechaza por nombre/extensión y por el `Content-Type` que declaró el navegador, sin abrir ni inspeccionar el archivo - frena el caso común (alguien comparte un `.exe`/`.vbs`/macro de Office) sin sacrificar la privacidad ni depender de un tercero. Alguien decidido puede evadirlo disfrazando un ejecutable con otra extensión; no es un antivirus, es una primera barrera barata.

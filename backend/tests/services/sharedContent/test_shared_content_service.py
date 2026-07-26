@@ -62,6 +62,23 @@ def test_create_share_de_archivo_que_supera_el_limite_lanza_value_error(fake_cli
     print("[test] OK: lanzo ValueError.")
 
 
+def test_create_share_de_archivo_con_extension_peligrosa_lanza_value_error(fake_client):
+    print("\n[test] create_share con un archivo .exe...")
+    with pytest.raises(ValueError):
+        shared_content_service.create_share(
+            content_type="file",
+            text=None,
+            file_bytes=b"MZ...",
+            file_name="actualizacion.exe",
+            file_mime_type="application/octet-stream",
+            password=None,
+            expires_in_minutes=60,
+            max_file_bytes=MAX_FILE_BYTES,
+            client=fake_client,
+        )
+    print("[test] OK: lanzo ValueError.")
+
+
 def test_create_share_de_archivo_sanitiza_el_nombre(fake_client):
     print("\n[test] create_share con un nombre de archivo con path traversal...")
     result = shared_content_service.create_share(

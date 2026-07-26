@@ -10,6 +10,7 @@ from app.schemas.sharedContent.shared_content_schemas import (
 )
 from app.services.sharedContent.cleanup.expire_on_access import purge_share, raise_if_expired
 from app.services.sharedContent.errors import ShareUnauthorizedError, ShareUnavailableError
+from app.services.sharedContent.security.blocked_file_types import is_blocked_file_type
 from app.services.sharedContent.security.encryption import decrypt_bytes, encrypt_bytes
 from app.services.sharedContent.security.lockout import register_failed_attempt
 from app.services.sharedContent.security.one_time_access import consume_view
@@ -71,6 +72,11 @@ def create_share(
             raise ValueError("Falta el archivo a compartir.")
         if len(file_bytes) > max_file_bytes:
             raise ValueError(f"El archivo supera el maximo de {max_file_bytes // 1_000_000}MB.")
+        # Bloqueo por extension/Content-Type declarado - no inspecciona el
+        # contenido real (eso implicaria mandarlo a un escaner externo antes
+        # de encriptarlo, ver security/blocked_file_types.py y README #11).
+        if is_blocked_file_type(file_name or "", file_mime_type):
+            raise ValueError("Este tipo de archivo no esta permitido por motivos de seguridad.")
         mime_type = file_mime_type or "application/octet-stream"
         # Nombre sanitizado ANTES de construir la ruta de storage: sin esto,
         # un nombre con "../" podria escribir fuera de la carpeta propia de
