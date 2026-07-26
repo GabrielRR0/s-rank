@@ -50,12 +50,18 @@ const { t } = useLocale()
 }
 
 .switch {
+  /* Antes el track (.switch) y la perilla (.perilla) usaban el mismo
+     --bg-surface cuando estaba apagado - quedaban del mismo color, casi
+     imposible de distinguir el uno del otro. Ahora el track apagado usa
+     --text-muted (un gris intermedio, visible sobre el fondo en los dos
+     temas) y la perilla siempre es --accent-contrast (blanco), asi que
+     hay contraste real tanto apagado como prendido. */
   position: relative;
   width: 2.25rem;
   height: 1.25rem;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg-surface);
+  border: 1px solid var(--text-muted);
+  background: var(--text-muted);
   cursor: pointer;
   flex-shrink: 0;
   transition:
@@ -75,8 +81,8 @@ const { t } = useLocale()
   width: 1rem;
   height: 1rem;
   border-radius: 50%;
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-sm);
+  background: var(--accent-contrast);
+  box-shadow: var(--shadow-md);
   transition: transform var(--duration-base) var(--ease-out);
 }
 

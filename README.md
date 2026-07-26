@@ -1,31 +1,40 @@
-# File Sharer
+# S-Rank
 
-## Problema que resuelve
+*Misiones rango S: acceso restringido, un solo intento, sin margen de error.*
 
-Compartir un archivo, texto o imagen de forma segura y efímera, sin depender de servicios externos ni dejar rastro permanente. El contenido se ve **una sola vez** (o expira en máximo 24hs, lo que ocurra primero) y se borra físicamente del storage justo después, nunca queda "oculto" en algún lado.
+Compartir algo sensible: un enlace que se puede abrir una sola vez (o que expira solo, en máximo 24 horas) y que después desaparece de verdad. No se "oculta" — se borra.
 
-## Estado actual
+## Qué hace
 
-Camino feliz completo: compartir texto o un archivo (hasta 10MB) con contraseña opcional y expiración configurable (hasta 24hs), generar el enlace, y consumirlo del lado del destinatario — incluyendo el caso de contraseña incorrecta (no quema la vista, pero sí cuenta para el bloqueo por intentos), el de dos accesos casi simultáneos al mismo enlace (solo uno gana), y el contenido encriptado de punta a punta en el storage.
+Pegás un texto o subís un archivo de hasta 10MB, elegís si querés protegerlo con una contraseña y cuánto tiempo va a estar disponible como máximo, y te da un enlace. La persona que lo abre ve el contenido una única vez; después de eso, ese enlace deja de funcionar para siempre, sin importar si expiró, si ya se vio, o si alguien intentó adivinar la contraseña demasiadas veces.
+
+Visualmente es minimalista a propósito: nada que distraiga de la única acción que importa en cada pantalla.
 
 ## Stack
 
-- Backend: FastAPI + [Supabase](https://supabase.com) (Postgres para metadata, Storage para los archivos) + `bcrypt` para las contraseñas + `cryptography` (AES-256-GCM) para encriptar el contenido en reposo.
-- Frontend: Vue 3 (Composition API + `<script setup>`) + Vite + TypeScript.
+FastAPI en el backend, con Supabase como base de datos y storage. Vue 3 en el frontend, sin librerías de más — la app tiene literalmente dos pantallas (crear un enlace, verlo), así que ni siquiera hace falta un router.
 
-## Diseño visual
+## Seguridad
 
-El estilo de todas las pantallas de este proyecto (y del resto del portafolio) sigue [`../DESIGN.md`](../DESIGN.md). Este proyecto usa violeta como color de acento (distinto del azul de `contract-generator`) para diferenciarse dentro del portafolio, tal como pide esa guía.
+Tanto el texto como los archivos se encriptan antes de tocar la base de datos (AES-256-GCM), con una clave que vive solo en el backend — ni Supabase ni nadie más la ve. No hay ninguna excepción: un texto pegado y un archivo subido pasan por el mismo cifrado antes de guardarse, solo cambia dónde queda cada uno (el texto ya cifrado en una columna de Postgres, el archivo ya cifrado en Supabase Storage). Aunque alguien accediera a los datos crudos de la base, se encontraría con bytes sin sentido en cualquiera de los dos casos.
 
-## Cómo probarlo
+La "vista única" es una garantía real, no una promesa de la interfaz: está resuelta con una sola operación atómica en la base de datos, así que si dos personas abren el mismo enlace casi al mismo tiempo, solo una de las dos puede llegar a ver el contenido.
 
-**Backend** (requiere un proyecto de Supabase configurado, ver `backend/README.md` sección 3.4):
+Los enlaces son prácticamente imposibles de adivinar — cada uno usa un identificador aleatorio de 122 bits, así que ni con mil millones de intentos por segundo alguien encontraría uno válido probando al azar. Una contraseña equivocada no gasta la única oportunidad de ver el contenido, pero repetirla demasiadas veces sí autodestruye el enlace, sin importar desde cuántas direcciones distintas se intente.
+
+También se rechazan archivos ejecutables, scripts y documentos de Office con macros antes de aceptarlos. No es un antivirus — no abre ni analiza el contenido real del archivo — y esa es una decisión consciente: escanear de verdad implicaría mandar el archivo a un servicio externo antes de encriptarlo, justo lo que este proyecto intenta evitar.
+
+Y para ser honesto sobre los límites: no hay forma de garantizar al 100% que "solo esta interfaz" puede hablar con la API — eso es así para cualquier aplicación pública sin cuentas de usuario, no un descuido de este proyecto en particular. Lo que sí tiene sentido, y está hecho, es sumar las capas que dan protección real: límites de velocidad agresivos, validación del origen de cada request, y un captcha opcional que queda apagado por defecto, para cuando haga falta más fricción contra bots.
+
+## Probarlo en local
+
+**Backend** (necesita un proyecto gratuito de Supabase, ver `backend/README.md`):
 ```
 cd backend
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-# copiar .env.example a .env y completar SUPABASE_URL/SUPABASE_KEY
+# copiar .env.example a .env y completar las variables de Supabase
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -36,24 +45,15 @@ npm install
 npm run dev
 ```
 
-Abrir la URL que imprime Vite (por defecto `http://localhost:5173`), compartir un texto o un archivo, copiar el enlace generado y abrirlo en otra pestaña (o en modo incógnito) para ver el flujo completo del lado del destinatario.
+Abrir la URL que imprime Vite (por defecto `http://localhost:5173`), compartir un texto o un archivo, copiá el enlace y abrilo en otra pestaña para ver el flujo completo del lado de quien lo recibe.
 
-## Cómo correr los tests
+## Tests
 
-- Backend: `cd backend && pytest` (no necesita Supabase real - usa un fake de storage en memoria, ver `backend/app/shared/storage/README.md`).
+- Backend: `cd backend && pytest` — no hace falta Supabase real, usa un doble en memoria para el storage.
 - Frontend: `cd frontend && npm run test`
 
-## Decisiones de arquitectura
+## Algunas decisiones que vale la pena explicar
 
-- **Texto directo en Postgres, archivos en Supabase Storage**: evita un viaje a Storage por compartir dos líneas de texto (ver `backend/app/services/sharedContent/README.md`).
-- **La vista única se consume recién en `POST /reveal`, nunca en el `GET` de estado**: un bot de previsualización de enlaces (WhatsApp, Slack...) hace un `GET` automático al abrir un link - si eso quemara la vista, el destinatario real se quedaría afuera. Ver `backend/app/services/sharedContent/security/README.md`.
-- **La contraseña se valida antes de consumir la vista**: un intento fallido no gasta la única oportunidad de ver el contenido; solo un `410` (vencido/ya visto) es realmente terminal, un `401` (contraseña incorrecta) deja reintentar.
-- **Atomicidad real vía un único `UPDATE ... WHERE viewed_at IS NULL` en Postgres**, no un lock en la aplicación - es la base de datos quien decide, con garantías reales, quién gana cuando dos requests llegan casi al mismo tiempo (ver `backend/app/shared/storage/supabase_client.py`).
-- **`StorageClient` como `Protocol` + inyección de dependencias en FastAPI**: permite testear todo el flujo (incluida la condición de carrera de la vista única) con un fake en memoria, sin necesitar un proyecto de Supabase real para correr `pytest`.
-- **Sin frontend router**: la app tiene exactamente dos pantallas (crear un share, verlo) y nunca se navega entre ellas del lado del cliente - una librería de ruteo completa sería sobredimensionada.
-- **Sin worker de limpieza persistente**: la expiración se resuelve on-demand, en el próximo acceso real al link - cumple la regla del portafolio de cero colas/workers 24/7, con la limitación conocida de que un link nunca vuelto a abrir queda en Supabase indefinidamente (ver `backend/app/services/sharedContent/cleanup/README.md`).
-- **Mismas convenciones estructurales que `contract-generator`**: sin `__init__.py` en el backend, tipo→dominio en ambas capas, un `README.md` por carpeta con lógica real, y el mismo patrón de deploy (`vercel.json` con dos servicios).
-- **Expiración tope de 24hs (antes hasta 7 días)**: el contenido de este proyecto es delicado y se espera que el destinatario lo vea casi de inmediato.
-- **Todo el contenido se encripta (AES-256-GCM) antes de guardarse en Supabase**, con una clave que vive solo en el backend - ver `backend/README.md` sección 11 para la explicación completa, incluyendo por qué "solo mi frontend puede llamar a esto" no es una garantía real para una SPA pública y qué capas honestas se suman en su lugar (chequeo de `Origin`, bloqueo por intentos fallidos por-share, Turnstile opcional apagado por defecto).
-- **Nombres de archivo sanitizados y `file_name` oculto hasta verificar contraseña**: dos correcciones de seguridad concretas encontradas al revisar el código (path traversal y fuga de metadata), no solo hardening genérico.
-- **Archivos peligrosos (ejecutables, scripts, macros de Office) rechazados por extensión/`Content-Type`, sin escanear el contenido real**: un escaneo de malware de verdad implicaría mandar el archivo a un tercero antes de encriptarlo, contradiciendo la promesa de privacidad del proyecto - ver `backend/README.md` sección 11 para el tradeoff completo.
+El texto se guarda directo en la base de datos; solo los archivos reales pasan por el storage, porque no tiene sentido subir dos líneas de texto a un bucket. La vista única se consume recién cuando alguien confirma que quiere ver el contenido, nunca con un simple chequeo de estado — si no fuera así, un bot de previsualización de enlaces (WhatsApp, Slack) quemaría la vista antes de que el destinatario real llegue a abrirlo.
+
+Tampoco hay ningún proceso corriendo en segundo plano limpiando enlaces vencidos: la expiración se resuelve la próxima vez que alguien intenta acceder a ese enlace puntual. Eso significa que un enlace que nadie vuelve a abrir puede quedar guardado (encriptado) indefinidamente — una limitación conocida y aceptada, no un error, a cambio de no tener que mantener un worker corriendo 24/7 para un proyecto de este tamaño.

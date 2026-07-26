@@ -9,7 +9,7 @@ from app.config import settings
 from app.core.rate_limit import limiter
 from app.routers.sharedContent.shared_content_router import router as shared_content_router
 
-app = FastAPI(title="File Sharer API")
+app = FastAPI(title="S-Rank API")
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

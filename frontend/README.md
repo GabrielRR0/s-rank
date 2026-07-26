@@ -1,4 +1,4 @@
-# Frontend — File Sharer (Vue 3 + Vite)
+# Frontend — S-Rank (Vue 3 + Vite)
 
 Crea un enlace temporal para compartir texto o un archivo, y la pantalla que ve quien lo abre. Bilingüe (español/inglés) y con tema claro/oscuro, ver `src/i18n/README.md` y `src/style.css`.
 

@@ -2,7 +2,7 @@ import type { Locale } from '../services/fileSharing/sharing.service'
 
 export const translations: Record<Locale, Record<string, string>> = {
   es: {
-    appTitle: 'Compartidor de archivos',
+    appTitle: 'S-Rank',
     appSubtitle: 'Compartí texto o un archivo con un enlace temporal, de visualización única.',
     tabText: 'Texto',
     tabFile: 'Archivo',
@@ -37,6 +37,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     viewRevealButton: 'Ver contenido',
     viewRevealingButton: 'Cargando...',
     viewDownloadButton: 'Descargar archivo',
+    viewCreateOwnPrompt: '¿Necesitás compartir algo así de seguro?',
+    viewCreateOwnButton: 'Creá tu propio enlace',
     themeToLight: 'Cambiar a modo claro',
     themeToDark: 'Cambiar a modo oscuro',
     linkedinAria: 'Perfil de LinkedIn del desarrollador',
@@ -44,7 +46,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     languageToggleAria: 'Cambiar idioma',
   },
   en: {
-    appTitle: 'File Sharer',
+    appTitle: 'S-Rank',
     appSubtitle: 'Share text or a file with a temporary, single-view link.',
     tabText: 'Text',
     tabFile: 'File',
@@ -79,6 +81,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     viewRevealButton: 'View content',
     viewRevealingButton: 'Loading...',
     viewDownloadButton: 'Download file',
+    viewCreateOwnPrompt: 'Need to share something this secure?',
+    viewCreateOwnButton: 'Create your own link',
     themeToLight: 'Switch to light mode',
     themeToDark: 'Switch to dark mode',
     linkedinAria: "Developer's LinkedIn profile",

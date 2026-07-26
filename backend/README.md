@@ -1,4 +1,4 @@
-# Backend — File Sharer (FastAPI)
+# Backend — S-Rank (FastAPI)
 
 API que comparte texto o un archivo detrás de un enlace temporal, de visualización única. Todo el procesamiento ocurre dentro de la misma request HTTP (sin colas, sin workers en segundo plano), para que funcione en un hosting serverless gratuito sin cold-starts largos.
 
@@ -73,7 +73,7 @@ pip install -r requirements.txt
    -- Sin políticas públicas a propósito: el backend accede con la service
    -- role key (bypassea RLS); el frontend nunca habla directo con Supabase.
    ```
-3. En **Storage**, crear un bucket privado llamado `shared-content`.
+3. En **Storage**, crear un bucket privado llamado `s-rank-content`.
 4. En **Project Settings → API**, copiar la **URL** y la **service_role key** (no la `anon` key — el backend borra objetos de Storage, algo que la key pública no puede hacer).
 5. Copiar `.env.example` a `.env` y completar `SUPABASE_URL` / `SUPABASE_KEY` con esos valores.
 6. Generar la clave de encriptación del contenido (ver sección 8) y completar `MASTER_ENCRYPTION_KEY` en el mismo `.env`:
@@ -128,7 +128,7 @@ Sin `__init__.py` en estas carpetas (namespace packages implícitos), cada carpe
 Copiar `.env.example` a `.env`:
 
 - `SUPABASE_URL` / `SUPABASE_KEY`: credenciales del proyecto de Supabase (ver sección 3.4). Sin esto, cualquier endpoint que toque storage falla.
-- `SUPABASE_STORAGE_BUCKET`: nombre del bucket (default `shared-content`).
+- `SUPABASE_STORAGE_BUCKET`: nombre del bucket (default `s'rank-content`).
 - `FRONTEND_URL`: URL del frontend en producción, sumada a CORS junto a `http://localhost:5173` (siempre permitido en dev).
 - `RATE_LIMIT_CREATE` / `RATE_LIMIT_STATUS` / `RATE_LIMIT_REVEAL`: límites por IP (ver sección 9).
 - `RATE_LIMIT_STORAGE_URI`: `memory://` alcanza para un proceso; en serverless con varias instancias, apuntar a Redis (Upstash) para un límite realmente global.

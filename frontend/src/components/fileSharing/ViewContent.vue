@@ -77,6 +77,17 @@ watch(estado, (nuevo) => {
         </a>
       </div>
     </template>
+
+    <!-- Se ve tanto si el contenido ya se revelo como si el link ya no
+         esta disponible (vencido/ya visto): en los dos casos el viaje del
+         destinatario termino aca, es el momento natural para invitarlo a
+         crear su propio enlace. Sin router: es una navegacion de pagina
+         completa a "/", que App.vue ya sabe resolver como el flujo de
+         creacion. -->
+    <div v-if="estado === 'revelado' || estado === 'no-disponible'" class="crear-propio">
+      <p class="crear-propio-texto">{{ t.viewCreateOwnPrompt }}</p>
+      <a href="/" class="crear-propio-enlace">{{ t.viewCreateOwnButton }}</a>
+    </div>
   </BaseCard>
 </template>
 
@@ -145,6 +156,34 @@ watch(estado, (nuevo) => {
 .imagen-revelada {
   max-width: 100%;
   border-radius: var(--radius-sm);
+}
+
+.crear-propio {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  text-align: center;
+}
+
+.crear-propio-texto {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.crear-propio-enlace {
+  color: var(--accent);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.crear-propio-enlace:hover {
+  opacity: 0.8;
 }
 
 @keyframes fade-in-up {
