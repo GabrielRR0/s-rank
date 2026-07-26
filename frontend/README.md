@@ -75,3 +75,4 @@ src/
 - **`VITE_API_BASE_URL` opcional en dev**: mismo motivo que `contract-generator` — cero configuración para levantar el proyecto localmente.
 - **Expiración tope de 24hs**: el contenido de este proyecto es delicado y se espera que el destinatario lo vea casi de inmediato (ver `backend/README.md`).
 - **Turnstile apagado por defecto, activable sin tocar código**: `TurnstileWidget.vue` ni se monta ni carga el script de Cloudflare a menos que `VITE_TURNSTILE_ENABLED=true` — el proyecto depende del rate limiting y el resto del hardening del backend por defecto.
+- **`<meta name="referrer" content="no-referrer">` en `index.html`**: el id del share vive en la URL (`/s/:id`) — sin esto, el navegador podría filtrar esa URL completa como `Referer` a cualquier sitio externo al que se navegue desde ahí. Ver `backend/README.md` sección 11.

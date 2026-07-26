@@ -9,7 +9,7 @@ Recibe texto o un archivo (`POST /api/shared-content`) y devuelve un id de enlac
 ## 2. Requisitos
 
 - Python 3.12+ instalado (`python --version` para verificar).
-- Un proyecto gratuito en [Supabase](https://supabase.com) (Postgres + Storage) — a diferencia de `contract-generator`, este backend sí necesita persistencia externa desde el primer request: en un hosting serverless el filesystem no sobrevive entre invocaciones, y el archivo subido en un request tiene que poder leerse desde otro. Ver sección 8 para el setup exacto.
+- Un proyecto gratuito en [Supabase](https://supabase.com) (Postgres + Storage) — 
 
 ## 3. Cómo ejecutarlo paso a paso
 
@@ -115,7 +115,7 @@ requirements.txt
 .env.example
 ```
 
-Sin `__init__.py` en estas carpetas (namespace packages implícitos), mismo criterio que `contract-generator` — cada carpeta con lógica real tiene su propio `README.md`.
+Sin `__init__.py` en estas carpetas (namespace packages implícitos), cada carpeta con lógica real tiene su propio `README.md`.
 
 ## 6. Flujo interno (de la subida al borrado)
 
@@ -127,7 +127,7 @@ Sin `__init__.py` en estas carpetas (namespace packages implícitos), mismo crit
 
 Copiar `.env.example` a `.env`:
 
-- `SUPABASE_URL` / `SUPABASE_KEY`: credenciales del proyecto de Supabase (ver sección 3.4). Sin esto, cualquier endpoint que toque storage falla — a diferencia de `contract-generator`, acá no son opcionales.
+- `SUPABASE_URL` / `SUPABASE_KEY`: credenciales del proyecto de Supabase (ver sección 3.4). Sin esto, cualquier endpoint que toque storage falla.
 - `SUPABASE_STORAGE_BUCKET`: nombre del bucket (default `shared-content`).
 - `FRONTEND_URL`: URL del frontend en producción, sumada a CORS junto a `http://localhost:5173` (siempre permitido en dev).
 - `RATE_LIMIT_CREATE` / `RATE_LIMIT_STATUS` / `RATE_LIMIT_REVEAL`: límites por IP (ver sección 9).
@@ -137,9 +137,9 @@ Copiar `.env.example` a `.env`:
 - `SHARE_PASSWORD_MAX_ATTEMPTS`: intentos de contraseña incorrecta permitidos por share antes de autodestruirlo (default `8`).
 - `TURNSTILE_ENABLED` / `TURNSTILE_SECRET_KEY`: captcha invisible de Cloudflare en la creación de shares, apagado por defecto (ver sección 11).
 
-## 8. Sobre Supabase (por qué es obligatorio acá y no en `contract-generator`)
+## 8. Sobre Supabase 
 
-En `contract-generator`, `shared/storage/` quedó vacía a propósito porque el PDF se genera y se descarga en la misma request, sin necesitar persistencia. Acá el archivo se sube en un request y se descarga en otro — potencialmente en otra instancia del backend en un hosting serverless — así que necesita vivir en un storage externo compartido desde el día uno. Es, dentro del portafolio, el primer proyecto que implementa de verdad la carpeta `shared/storage/` que `contract-generator` dejó preparada para reutilizar.
+ Acá el archivo se sube en un request y se descarga en otro — potencialmente en otra instancia del backend en un hosting serverless — así que necesita vivir en un storage externo compartido desde el día uno. Es, dentro del portafolio, el primer proyecto que implementa de verdad la carpeta `shared/storage/`
 
 ## 9. Protecciones del backend (rate limiting y hardening)
 
@@ -164,7 +164,7 @@ En `contract-generator`, `shared/storage/` quedó vacía a propósito porque el 
 - **Atomicidad vía un único `UPDATE ... WHERE viewed_at IS NULL`, no un lock en Python**: es Postgres quien decide, con garantías reales, quién gana cuando dos requests llegan casi al mismo tiempo. Ver `app/shared/storage/supabase_client.py`.
 - **`StorageClient` como `Protocol` + inyección con `Depends()`**: permite testear todo el flujo (incluida la condición de carrera de la vista única) con un fake en memoria, sin depender de un proyecto de Supabase real durante `pytest`.
 - **Sin worker de limpieza persistente**: la expiración se resuelve on-demand, en el próximo acceso real al link — cumple la regla del portafolio de cero colas/workers 24/7 (con la limitación conocida de que un link nunca vuelto a abrir queda en Supabase indefinidamente; ver `services/sharedContent/cleanup/README.md`).
-- **Sin `__init__.py`**: mismo criterio que `contract-generator` — namespace packages implícitos, documentación en el `README.md` de cada carpeta.
+- **Sin `__init__.py`**: namespace packages implícitos, documentación en el `README.md` de cada carpeta.
 - **Expiración tope de 24hs** (antes permitía hasta 7 días): el contenido de este proyecto es delicado y se espera que el destinatario lo vea casi de inmediato, no que quede disponible días "por las dudas".
 - **Bloqueo de intentos fallidos por-share con update simple, no un `UPDATE` atómico vía RPC**: a diferencia de `viewed_at`, una carrera improbable acá solo le regala a un atacante un intento extra, no una fuga de contenido — no amerita la complejidad de una función SQL propia.
 
@@ -172,11 +172,18 @@ En `contract-generator`, `shared/storage/` quedó vacía a propósito porque el 
 
 **¿El contenido se guarda en Supabase? ¿Se encripta?** Sí se guarda en Supabase (Postgres para texto/metadata, Storage para archivos), y **sí, todo se encripta** con AES-256-GCM antes de guardarse (`services/sharedContent/security/encryption.py`). La clave (`MASTER_ENCRYPTION_KEY`) vive solo en las variables de entorno del backend — nunca en Supabase, nunca en el frontend. Aunque alguien accediera a los datos crudos de Supabase (credenciales filtradas, un volcado de la base, un incidente del lado de Supabase), el contenido seguiría siendo bytes ilegibles sin esa clave.
 
-**¿Solo este frontend puede llamar a este backend?** No de forma absoluta, y ninguna SPA pública sin cuentas de usuario puede garantizar eso realmente: cualquiera puede abrir las herramientas de desarrollador del navegador, copiar el request exacto que hace el frontend, y repetirlo con `curl`. Una "API key" embebida en el frontend no cambiaría esto — sería visible en el bundle de JavaScript que cualquiera puede leer, así que no protegería nada real (sería seguridad de utilería). Esta es una limitación arquitectónica, no un descuido, y aplica igual a `contract-generator` o a cualquier SPA + API pública. Lo que sí se suma, con beneficio real:
+**¿Solo este frontend puede llamar a este backend?** No de forma absoluta, y ninguna SPA pública sin cuentas de usuario puede garantizar eso realmente: cualquiera puede abrir las herramientas de desarrollador del navegador, copiar el request exacto que hace el frontend, y repetirlo con `curl`. Una "API key" embebida en el frontend no cambiaría esto — sería visible en el bundle de JavaScript que cualquiera puede leer, así que no protegería nada real (sería seguridad de utilería). Esta es una limitación arquitectónica, no un descuido, y aplica a cualquier SPA + API pública. Lo que sí se suma, con beneficio real:
 - El chequeo de `Origin` (sección 9) sube el costo de que *otro sitio web* abuse de la API desde el navegador de una víctima.
 - El rate limiting por IP + el bloqueo por intentos fallidos por-share (sección 9) limitan el daño real de cualquier actor automatizado, sin importar si usa este frontend o un script propio.
 - Turnstile (ver abajo) suma fricción real contra automatización a gran escala en la creación de shares.
 
 **¿Y contra un atacante con más habilidad?** Además de lo anterior, revisando el código con esa lente se corrigieron dos problemas concretos que sí eran reales: un path traversal en el nombre de archivo subido, y una fuga del nombre del archivo antes de verificar la contraseña (ambos en sección 9).
+
+**¿Se puede "adivinar" un enlace probando ids al azar hasta encontrar uno que exista?** Con los números reales, no es viable. `share_id` es un UUID v4 (`uuid.uuid4()`, que en Python usa `os.urandom()` — un generador criptográficamente seguro, no un `random()` predecible): 122 bits de aleatoriedad real, ~5.3 × 10³⁶ valores posibles. Ni con mil millones de intentos por segundo sostenidos se agotaría ese espacio en un tiempo razonable. Además:
+- No existe ningún endpoint que *liste* shares — `GET /api/shared-content/{id}` exige conocer el id de antemano, nunca hay un "catálogo" para navegar. La única forma de "encontrar" un share es adivinar el UUID exacto, no hay atajos.
+- Row Level Security en Supabase (sección 3.4, sin políticas públicas) tapa el otro camino posible: aunque se filtrara la `anon key`, sin políticas no se puede hacer un `SELECT * FROM shared_content` para listar ids reales directamente contra la base.
+- `RATE_LIMIT_STATUS` (30/min por IP) es una capa extra, pero en la práctica es irrelevante frente a ese tamaño de espacio — lo que realmente hace esto seguro es la aleatoriedad del id, no el límite de requests.
+
+**Un riesgo distinto, y ese sí valía la pena cerrar: fuga del id vía el header `Referer`.** El id del share vive en la URL misma (`/s/{id}`); si esa página cargara algún recurso de un dominio externo, o el destinatario hiciera clic en un link hacia afuera, el navegador podría mandar esa URL completa (id incluido) como `Referer` al sitio de destino — filtrando el "secreto" sin que nadie lo haya adivinado. Se agregó `<meta name="referrer" content="no-referrer">` en `frontend/index.html`, que corta esto en toda la página (no solo en el único link externo que ya tenía protección puntual, `rel="noreferrer"` en el ícono de LinkedIn del footer).
 
 **Turnstile — apagado por defecto.** Para activarlo: crear un widget gratuito en el [dashboard de Cloudflare](https://dash.cloudflare.com/) (modo "Managed" o "Invisible"), y setear `TURNSTILE_ENABLED=true` + `TURNSTILE_SECRET_KEY` acá, más `VITE_TURNSTILE_ENABLED=true` + `VITE_TURNSTILE_SITE_KEY` en `frontend/.env`. Con el flag apagado (default), el backend nunca llama a Cloudflare y el frontend nunca carga su script — cero impacto en el flujo normal.

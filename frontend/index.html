@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- El id del share vive en la URL misma (/s/:id) - sin esto, el
+         navegador mandaria esa URL completa como Referer a cualquier sitio
+         de terceros al que se navegue desde esta pagina (una imagen externa,
+         un link), filtrando el "secreto" fuera de este dominio. -->
+    <meta name="referrer" content="no-referrer" />
     <title>File Sharer</title>
   </head>
   <body>
