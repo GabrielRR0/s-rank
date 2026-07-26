@@ -1,0 +1,164 @@
+:root {
+  /* Escala de grises (ver ../DESIGN.md #2) */
+  --text: #4b4b52;
+  --text-h: #111113;
+  --text-muted: #86868b;
+  --bg: #fafafa;
+  --bg-surface: #ffffff;
+  --border: #e3e3e6;
+
+  /* Unico color de acento del proyecto - violeta, distinto al azul de
+     contract-generator, para diferenciar el proyecto dentro del portafolio
+     (DESIGN.md #1.5). */
+  --accent: #7c5cff;
+  --accent-contrast: #ffffff;
+
+  /* Color de error: unica excepcion al "un solo acento" (DESIGN.md #2),
+     tono apagado en vez de rojo puro para no romper la paleta minimalista */
+  --alert-bg: rgba(217, 45, 32, 0.06);
+  --alert-border: rgba(217, 45, 32, 0.22);
+  --alert-text: #ae2a1f;
+
+  /* Tipografia: system font stack, sin cargar fuentes externas */
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* Radios y sombra consistentes en todo el proyecto */
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+
+  /* Easing/duraciones estandar (ver DESIGN.md #5) */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-base: 300ms;
+
+  font: 16px/1.6 var(--sans);
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tema oscuro: por defecto sigue al sistema (prefers-color-scheme), pero el
+   ThemeToggle manual (data-theme en <html>) siempre tiene la ultima palabra. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #c7c7cc;
+    --text-h: #f5f5f7;
+    --text-muted: #86868b;
+    --bg: #0a0a0b;
+    --bg-surface: #17171a;
+    --border: #2c2c2e;
+    --accent: #9c85ff;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --alert-bg: rgba(255, 100, 90, 0.1);
+    --alert-border: rgba(255, 100, 90, 0.3);
+    --alert-text: #ff8a80;
+  }
+}
+
+:root[data-theme='dark'] {
+  --text: #c7c7cc;
+  --text-h: #f5f5f7;
+  --text-muted: #86868b;
+  --bg: #0a0a0b;
+  --bg-surface: #17171a;
+  --border: #2c2c2e;
+  --accent: #9c85ff;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --alert-bg: rgba(255, 100, 90, 0.1);
+  --alert-border: rgba(255, 100, 90, 0.3);
+  --alert-text: #ff8a80;
+}
+
+:root[data-theme='light'] {
+  --text: #4b4b52;
+  --text-h: #111113;
+  --text-muted: #86868b;
+  --bg: #fafafa;
+  --bg-surface: #ffffff;
+  --border: #e3e3e6;
+  --accent: #7c5cff;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --alert-bg: rgba(217, 45, 32, 0.06);
+  --alert-border: rgba(217, 45, 32, 0.22);
+  --alert-text: #ae2a1f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Transicion suave al cambiar de tema (manual o del sistema): sin esto, las
+   variables de color cambian de un frame a otro y toda la pagina "parpadea"
+   en vez de fundirse entre claro/oscuro. */
+*,
+*::before,
+*::after {
+  transition:
+    background-color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out),
+    fill var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--sans);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+/* Barrido circular al cambiar de tema (View Transitions API nativa del
+   navegador), centrado en las coordenadas del click sobre el ThemeToggle
+   (ver --theme-toggle-x/-y, seteadas en ThemeToggle.vue). El tema nuevo
+   "revela" por encima del anterior en vez de solo cambiar de golpe. */
+::view-transition-old(root) {
+  animation: none;
+}
+
+::view-transition-new(root) {
+  animation: theme-reveal 650ms var(--ease-out);
+}
+
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0% at var(--theme-toggle-x, 100%) var(--theme-toggle-y, 0%));
+  }
+  to {
+    clip-path: circle(150% at var(--theme-toggle-x, 100%) var(--theme-toggle-y, 0%));
+  }
+}
+
+/* A diferencia de contract-generator (que la desactivo por pedido puntual
+   del usuario en ese proyecto), aca si se respeta la preferencia de
+   accesibilidad de reducir movimiento, tal como pide ../DESIGN.md #5. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
