@@ -6,7 +6,7 @@ Compartir algo sensible: un enlace que se puede abrir una sola vez (o que expira
 
 ## Qué hace
 
-Pegás un texto o subís un archivo de hasta 10MB, elegís si querés protegerlo con una contraseña y cuánto tiempo va a estar disponible como máximo, y te da un enlace. La persona que lo abre ve el contenido una única vez; después de eso, ese enlace deja de funcionar para siempre, sin importar si expiró, si ya se vio, o si alguien intentó adivinar la contraseña demasiadas veces.
+Pegas un texto o subes un archivo de hasta 10MB, eliges si quieres protegerlo con una contraseña y cuánto tiempo va a estar disponible como máximo, y te da un enlace. La persona que lo abre ve el contenido una única vez; después de eso, ese enlace deja de funcionar para siempre, sin importar si expiró, si ya se vio, o si alguien intentó adivinar la contraseña demasiadas veces.
 
 Visualmente es minimalista a propósito: nada que distraiga de la única acción que importa en cada pantalla.
 
@@ -45,7 +45,7 @@ npm install
 npm run dev
 ```
 
-Abrir la URL que imprime Vite (por defecto `http://localhost:5173`), compartir un texto o un archivo, copiá el enlace y abrilo en otra pestaña para ver el flujo completo del lado de quien lo recibe.
+Abre la URL que imprime Vite (por defecto `http://localhost:5173`), comparte un texto o un archivo, copia el enlace y ábrelo en otra pestaña para ver el flujo completo del lado de quien lo recibe.
 
 ## Tests
 
