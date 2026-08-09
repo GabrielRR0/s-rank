@@ -9,9 +9,9 @@ async def verify_turnstile_token(token: str | None) -> bool:
     """Valida el token de Turnstile contra la API de Cloudflare.
 
     Si TURNSTILE_ENABLED esta apagado (default), devuelve True sin llamar a
-    nadie - este proyecto depende del rate limiting y el resto del
-    hardening por defecto; Turnstile es una capa opcional que se activa
-    explicitamente via variable de entorno (ver README), sin tocar codigo.
+    nadie - Turnstile es una capa opcional que se activa explicitamente via
+    variable de entorno (ver README), sin tocar codigo. Generico: usado por
+    sharedContent y secretChatAuth por igual (ver shared/security/README.md).
     """
     if not settings.turnstile_enabled:
         return True

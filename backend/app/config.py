@@ -68,5 +68,66 @@ class Settings(BaseSettings):
     turnstile_enabled: bool = False
     turnstile_secret_key: str = ""
 
+    # secretVault (Cofre del chat secreto S-Rank): unico dominio del chat
+    # que toca el backend (los mensajes van por Supabase Realtime Broadcast,
+    # nunca por aca - ver app/services/secretVault/README.md). Mismos
+    # nombres de proyecto Supabase que sharedContent, ninguna credencial
+    # nueva. Limites separados de los de sharedContent porque es un recurso
+    # distinto (texto corto, no archivos).
+    rate_limit_vault_create: str = "20/minute"
+    rate_limit_vault_status: str = "60/minute"
+    rate_limit_vault_copy: str = "30/minute"
+    # Un secreto de Cofre es texto corto (una contraseña, no un archivo) -
+    # techo bajo a proposito, muy por debajo de max_body_bytes.
+    vault_max_ciphertext_bytes: int = 8000
+
+    # secretChatAuth: autoriza que canales de Supabase Realtime (Broadcast/
+    # Presence del chat) solo los use gente que paso por este backend -
+    # ver backend/README.md seccion 13. Distinto del JWT Secret de Supabase
+    # que YA existia (SUPABASE_KEY es la service_role key, un tipo de
+    # credencial totalmente distinto) - este es el "JWT Secret" de
+    # Project Settings -> API, usado para firmar tokens propios. Sin
+    # default a proposito, igual que master_encryption_key: si falta,
+    # mintear un token debe fallar explicito, no firmar con un secreto vacio.
+    supabase_jwt_secret: str = ""
+    # 5 min: vida del access token, el unico que las politicas RLS de
+    # Supabase realmente exigen. Corto a proposito (ver doc de Supabase:
+    # "keep JWT expiration windows short").
+    realtime_access_ttl_seconds: int = 300
+    # 45 min: cuanto puede una sesion "coastear" refrescando el access
+    # token en segundo plano sin volver a resolver Turnstile.
+    realtime_session_ttl_seconds: int = 2700
+    # 7 dias: vida de una sala CON contraseña antes de purgarse on-access
+    # (sin worker, mismo criterio que el resto del proyecto). Las salas sin
+    # contraseña nunca generan fila, no les aplica este limite.
+    secret_chat_room_ttl_seconds: int = 604800
+    rate_limit_realtime_rooms: str = "10/minute"
+    rate_limit_realtime_token: str = "20/minute"
+    rate_limit_realtime_refresh: str = "60/minute"
+    # bot_guard: bloqueo temporal por IP tras varios fallos de Turnstile o
+    # de contraseña de sala en poco tiempo - ver services/secretChatAuth/bot_guard.py.
+    bot_guard_max_failures: int = 5
+    bot_guard_window_seconds: int = 600
+    bot_guard_block_seconds: int = 1800
+
+    # secretChatMedia: imagenes/audio del chat enviados como mensaje normal
+    # (no al Cofre) - a diferencia del resto de los mensajes, estos SI pasan
+    # por este backend (decision deliberada, ver services/secretChatMedia/README.md:
+    # evita el techo real de ~256KB de Supabase Realtime Broadcast). El
+    # backend nunca ve el contenido real - solo bytes ya cifrados en el
+    # navegador con la clave de la sala.
+    secret_chat_media_bucket: str = "secret-chat-media"
+    chat_media_max_bytes: int = 10_000_000
+    rate_limit_chat_media_create: str = "20/minute"
+    rate_limit_chat_media_status: str = "60/minute"
+
+    # Extension del Cofre (secretVault) para guardar imagenes/audio ademas
+    # de texto corto - mismo cifrado de punta a punta, pero el contenido
+    # pasa a vivir en Supabase Storage (bucket separado del de arriba, un
+    # Cofre agotado/vencido borra su propio archivo, ver
+    # services/secretVault/cleanup/expire_on_access.py).
+    supabase_vault_media_bucket: str = "secret-vault-media"
+    vault_media_max_bytes: int = 10_000_000
+
 
 settings = Settings()

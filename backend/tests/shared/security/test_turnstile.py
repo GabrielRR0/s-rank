@@ -3,7 +3,7 @@ import asyncio
 import httpx
 
 from app.config import settings
-from app.services.sharedContent.security.turnstile import verify_turnstile_token
+from app.shared.security.turnstile import verify_turnstile_token
 
 
 def test_verify_turnstile_token_devuelve_true_si_esta_apagado(monkeypatch):

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onUnmounted, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useLocale } from '../../i18n/useLocale'
 import { useOneTimeView } from '../../composables/fileSharing/useOneTimeView'
+import AudioPlayer from '../ui/AudioPlayer.vue'
 import BaseAlert from '../ui/BaseAlert.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseCard from '../ui/BaseCard.vue'
@@ -14,6 +15,9 @@ const { estado, requierePassword, password, errorPassword, contenido, revelar } 
 const esImagen = computed(
   () => contenido.value?.contentType === 'file' && contenido.value.blob.type.startsWith('image/'),
 )
+const esAudio = computed(
+  () => contenido.value?.contentType === 'file' && contenido.value.blob.type.startsWith('audio/'),
+)
 
 let urlObjetoActual: string | null = null
 const urlObjeto = computed(() => {
@@ -21,6 +25,21 @@ const urlObjeto = computed(() => {
   urlObjetoActual = URL.createObjectURL(contenido.value.blob)
   return urlObjetoActual
 })
+
+// AudioPlayer.vue (mismo endurecimiento anti-descarga que el chat secreto -
+// ver secretChat/README.md) necesita el ArrayBuffer crudo para decodificar
+// con la Web Audio API, no un Blob URL - por eso el audio no pasa por
+// `urlObjeto` de arriba.
+const datosAudio = ref<ArrayBuffer | null>(null)
+watch(
+  contenido,
+  async (nuevo) => {
+    if (nuevo?.contentType === 'file' && nuevo.blob.type.startsWith('audio/')) {
+      datosAudio.value = await nuevo.blob.arrayBuffer()
+    }
+  },
+  { immediate: true },
+)
 
 // El objeto revelado solo se ve una vez y esta pantalla no vuelve a
 // necesitarlo despues de irse - liberar la URL evita que el navegador
@@ -71,7 +90,15 @@ watch(estado, (nuevo) => {
     <template v-else-if="estado === 'revelado' && contenido">
       <pre v-if="contenido.contentType === 'text'" class="texto-revelado">{{ contenido.text }}</pre>
       <div v-else class="archivo-revelado">
-        <img v-if="esImagen" :src="urlObjeto!" class="imagen-revelada" :alt="contenido.fileName" />
+        <img
+          v-if="esImagen"
+          :src="urlObjeto!"
+          class="imagen-revelada"
+          :alt="contenido.fileName"
+          draggable="false"
+          @contextmenu.prevent
+        />
+        <AudioPlayer v-else-if="esAudio && datosAudio" :datos="datosAudio" />
         <a v-else :href="urlObjeto!" :download="contenido.fileName" class="descarga-enlace">
           <BaseButton>{{ t.viewDownloadButton }}</BaseButton>
         </a>
@@ -156,6 +183,11 @@ watch(estado, (nuevo) => {
 .imagen-revelada {
   max-width: 100%;
   border-radius: var(--radius-sm);
+  /* Friccion deliberada contra "Guardar imagen como"/arrastrar - no es una
+     garantia (ver secretChat/README.md), solo sube la valla del caso casual. */
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .crear-propio {

@@ -1,7 +1,8 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { useOneTimeView } from '../../composables/fileSharing/useOneTimeView'
+import AudioPlayer from '../ui/AudioPlayer.vue'
 import ViewContent from './ViewContent.vue'
 
 vi.mock('../../composables/fileSharing/useOneTimeView', () => ({
@@ -114,13 +115,26 @@ describe('ViewContent', () => {
     expect(wrapper.find('.crear-propio').exists()).toBe(true)
   })
 
-  it('muestra una imagen inline cuando el archivo revelado es una imagen', () => {
+  it('muestra una imagen inline, endurecida contra guardar/arrastrar, cuando el archivo revelado es una imagen', () => {
     const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' })
     mockUseOneTimeView({ estado: 'revelado', contenido: { contentType: 'file', blob, fileName: 'foto.png' } })
 
     const wrapper = mount(ViewContent, { props: { shareId: 'abc' } })
 
     expect(wrapper.find('.imagen-revelada').exists()).toBe(true)
+    expect(wrapper.find('.imagen-revelada').attributes('draggable')).toBe('false')
+    expect(wrapper.find('.descarga-enlace').exists()).toBe(false)
+  })
+
+  it('muestra el reproductor propio (sin <audio> nativo ni descarga) cuando el archivo revelado es audio', async () => {
+    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/webm' })
+    mockUseOneTimeView({ estado: 'revelado', contenido: { contentType: 'file', blob, fileName: 'nota.webm' } })
+
+    const wrapper = mount(ViewContent, { props: { shareId: 'abc' } })
+    await flushPromises()
+
+    expect(wrapper.findComponent(AudioPlayer).exists()).toBe(true)
+    expect(wrapper.find('audio').exists()).toBe(false)
     expect(wrapper.find('.descarga-enlace').exists()).toBe(false)
   })
 

@@ -1,17 +1,29 @@
 :root {
-  /* Escala de grises (ver ../DESIGN.md #2) */
-  --text: #4b4b52;
-  --text-h: #111113;
-  --text-muted: #86868b;
-  --bg: #fafafa;
+  /* Escala de grises con un tinte violeta sutil (S-Rank se aparta a
+     proposito de la paleta plana de ../DESIGN.md - ver nota mas abajo) */
+  --text: #55525f;
+  --text-h: #17151d;
+  --text-muted: #86838f;
+  --bg: #f7f6fb;
   --bg-surface: #ffffff;
-  --border: #e3e3e6;
+  --bg-inset: #f1eff6;
+  --border: #e4e1ec;
 
   /* Unico color de acento del proyecto - violeta, distinto al azul de
      contract-generator, para diferenciar el proyecto dentro del portafolio
-     (DESIGN.md #1.5). */
+     (DESIGN.md #1.5). A diferencia del resto del portafolio, S-Rank expresa
+     este acento tambien como gradiente + sombra de color (--accent-gradient,
+     --shadow-glow*) en superficies "primarias" - una excepcion deliberada y
+     confirmada a las reglas #1/#2 de ../DESIGN.md (acento plano, sin
+     sombras de color), pedida puntualmente para este proyecto. --accent en
+     si se mantiene plano para texto/iconos/bordes de foco. */
   --accent: #7c5cff;
   --accent-contrast: #ffffff;
+  --accent-grad-1: #9683ff;
+  --accent-grad-2: #6d3fe0;
+  --accent-gradient: linear-gradient(135deg, var(--accent-grad-1) 0%, var(--accent-grad-2) 100%);
+  --shadow-glow: 0 6px 22px rgba(124, 92, 255, 0.28);
+  --shadow-glow-sm: 0 3px 12px rgba(124, 92, 255, 0.26);
 
   /* Color de error: unica excepcion al "un solo acento" (DESIGN.md #2),
      tono apagado en vez de rojo puro para no romper la paleta minimalista */
@@ -47,15 +59,20 @@
    ThemeToggle manual (data-theme en <html>) siempre tiene la ultima palabra. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #c7c7cc;
+    --text: #c8c6d1;
     --text-h: #f5f5f7;
-    --text-muted: #86868b;
-    --bg: #0a0a0b;
-    --bg-surface: #17171a;
-    --border: #2c2c2e;
+    --text-muted: #8b8b95;
+    --bg: #0a0a0f;
+    --bg-surface: #17161d;
+    --bg-inset: #0e0d13;
+    --border: #27242e;
     --accent: #9c85ff;
+    --accent-grad-1: #8b7bff;
+    --accent-grad-2: #6a3ce0;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --shadow-glow: 0 6px 24px rgba(124, 92, 255, 0.35);
+    --shadow-glow-sm: 0 3px 14px rgba(124, 92, 255, 0.32);
     --alert-bg: rgba(255, 100, 90, 0.1);
     --alert-border: rgba(255, 100, 90, 0.3);
     --alert-text: #ff8a80;
@@ -63,30 +80,40 @@
 }
 
 :root[data-theme='dark'] {
-  --text: #c7c7cc;
+  --text: #c8c6d1;
   --text-h: #f5f5f7;
-  --text-muted: #86868b;
-  --bg: #0a0a0b;
-  --bg-surface: #17171a;
-  --border: #2c2c2e;
+  --text-muted: #8b8b95;
+  --bg: #0a0a0f;
+  --bg-surface: #17161d;
+  --bg-inset: #0e0d13;
+  --border: #27242e;
   --accent: #9c85ff;
+  --accent-grad-1: #8b7bff;
+  --accent-grad-2: #6a3ce0;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 6px 24px rgba(124, 92, 255, 0.35);
+  --shadow-glow-sm: 0 3px 14px rgba(124, 92, 255, 0.32);
   --alert-bg: rgba(255, 100, 90, 0.1);
   --alert-border: rgba(255, 100, 90, 0.3);
   --alert-text: #ff8a80;
 }
 
 :root[data-theme='light'] {
-  --text: #4b4b52;
-  --text-h: #111113;
-  --text-muted: #86868b;
-  --bg: #fafafa;
+  --text: #55525f;
+  --text-h: #17151d;
+  --text-muted: #86838f;
+  --bg: #f7f6fb;
   --bg-surface: #ffffff;
-  --border: #e3e3e6;
+  --bg-inset: #f1eff6;
+  --border: #e4e1ec;
   --accent: #7c5cff;
+  --accent-grad-1: #9683ff;
+  --accent-grad-2: #6d3fe0;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-glow: 0 6px 22px rgba(124, 92, 255, 0.28);
+  --shadow-glow-sm: 0 3px 12px rgba(124, 92, 255, 0.26);
   --alert-bg: rgba(217, 45, 32, 0.06);
   --alert-border: rgba(217, 45, 32, 0.22);
   --alert-text: #ae2a1f;

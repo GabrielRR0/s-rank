@@ -29,7 +29,8 @@ defineEmits<{ click: [] }>()
 
 .base-button.primary {
   border: none;
-  background: var(--accent);
+  background: var(--accent-gradient);
+  box-shadow: var(--shadow-glow);
   color: var(--accent-contrast);
 }
 

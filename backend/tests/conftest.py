@@ -3,11 +3,16 @@ import os
 from datetime import datetime, timezone
 
 import pytest
+from postgrest.exceptions import APIError
 
 from app.config import settings
 from app.core.rate_limit import limiter
 from app.main import app
+from app.services.secretChatAuth import bot_guard
+from app.shared.storage.supabase_chat_media_client import get_chat_media_storage_client
+from app.shared.storage.supabase_chat_rooms_client import get_chat_room_storage_client
 from app.shared.storage.supabase_client import get_storage_client
+from app.shared.storage.supabase_vault_client import get_vault_storage_client
 
 
 class FakeStorageClient:
@@ -73,6 +78,161 @@ def _override_storage_client(fake_client):
     app.dependency_overrides[get_storage_client] = lambda: fake_client
     yield
     app.dependency_overrides.pop(get_storage_client, None)
+
+
+class FakeVaultStorageClient:
+    """Doble en memoria de VaultStorageClient (ver
+    app/shared/storage/supabase_vault_client.py).
+
+    `decrement_copies_if_available` implementa la resta en Python plano -
+    alcanza para probar el *contrato* (agotamiento secuencial correcto), no
+    concurrencia real: la garantia atomica real la da Postgres via la
+    funcion `decrement_vault_copies` (ver backend/README.md seccion 12), y
+    eso solo se puede probar contra una base real, no contra este fake
+    (mismo criterio que ya admite esta clase hermana para
+    mark_viewed_if_unseen).
+    """
+
+    def __init__(self):
+        self.rows: dict[str, dict] = {}
+        self.files: dict[str, bytes] = {}
+
+    def insert_vault_item(self, record: dict) -> dict:
+        self.rows[record["id"]] = dict(record)
+        return dict(record)
+
+    def get_vault_item(self, item_id: str) -> dict | None:
+        row = self.rows.get(item_id)
+        return dict(row) if row is not None else None
+
+    def decrement_copies_if_available(self, item_id: str) -> dict | None:
+        row = self.rows.get(item_id)
+        if row is None or row.get("remaining_copies", 0) <= 0:
+            return None
+        expires_at = row["expires_at"]
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        if datetime.now(timezone.utc) >= expires_at:
+            return None
+        row["remaining_copies"] -= 1
+        return dict(row)
+
+    def delete_vault_item(self, item_id: str) -> None:
+        self.rows.pop(item_id, None)
+
+    def upload_file(self, path: str, content: bytes, content_type: str) -> None:
+        self.files[path] = content
+
+    def download_file(self, path: str) -> bytes:
+        return self.files[path]
+
+    def delete_file(self, path: str) -> None:
+        self.files.pop(path, None)
+
+
+@pytest.fixture
+def fake_vault_client():
+    return FakeVaultStorageClient()
+
+
+@pytest.fixture(autouse=True)
+def _override_vault_storage_client(fake_vault_client):
+    app.dependency_overrides[get_vault_storage_client] = lambda: fake_vault_client
+    yield
+    app.dependency_overrides.pop(get_vault_storage_client, None)
+
+
+class FakeChatRoomStorageClient:
+    """Doble en memoria de ChatRoomStorageClient (ver
+    app/shared/storage/supabase_chat_rooms_client.py). `insert_room` lanza
+    `postgrest.exceptions.APIError` ante un id duplicado, igual que la
+    violacion de unique constraint real en Postgres - asi
+    create_room_with_password ejercita el mismo camino de traduccion a
+    RoomAlreadyExistsError que usaria contra Supabase real."""
+
+    def __init__(self):
+        self.rows: dict[str, dict] = {}
+
+    def insert_room(self, record: dict) -> dict:
+        if record["id"] in self.rows:
+            raise APIError({"message": "duplicate key value violates unique constraint", "code": "23505"})
+        self.rows[record["id"]] = dict(record)
+        return dict(record)
+
+    def get_room(self, room_id: str) -> dict | None:
+        row = self.rows.get(room_id)
+        return dict(row) if row is not None else None
+
+    def delete_room(self, room_id: str) -> None:
+        self.rows.pop(room_id, None)
+
+
+@pytest.fixture
+def fake_chat_room_client():
+    return FakeChatRoomStorageClient()
+
+
+@pytest.fixture(autouse=True)
+def _override_chat_room_storage_client(fake_chat_room_client):
+    app.dependency_overrides[get_chat_room_storage_client] = lambda: fake_chat_room_client
+    yield
+    app.dependency_overrides.pop(get_chat_room_storage_client, None)
+
+
+class FakeChatMediaStorageClient:
+    """Doble en memoria de ChatMediaStorageClient (ver
+    app/shared/storage/supabase_chat_media_client.py) - combina fila +
+    Storage, mismo criterio que FakeStorageClient."""
+
+    def __init__(self):
+        self.rows: dict[str, dict] = {}
+        self.files: dict[str, bytes] = {}
+
+    def insert_media_item(self, record: dict) -> dict:
+        self.rows[record["id"]] = dict(record)
+        return dict(record)
+
+    def get_media_item(self, item_id: str) -> dict | None:
+        row = self.rows.get(item_id)
+        return dict(row) if row is not None else None
+
+    def delete_media_item(self, item_id: str) -> None:
+        self.rows.pop(item_id, None)
+
+    def upload_file(self, path: str, content: bytes, content_type: str) -> None:
+        self.files[path] = content
+
+    def download_file(self, path: str) -> bytes:
+        return self.files[path]
+
+    def delete_file(self, path: str) -> None:
+        self.files.pop(path, None)
+
+
+@pytest.fixture
+def fake_chat_media_client():
+    return FakeChatMediaStorageClient()
+
+
+@pytest.fixture(autouse=True)
+def _override_chat_media_storage_client(fake_chat_media_client):
+    app.dependency_overrides[get_chat_media_storage_client] = lambda: fake_chat_media_client
+    yield
+    app.dependency_overrides.pop(get_chat_media_storage_client, None)
+
+
+@pytest.fixture(autouse=True)
+def _reset_bot_guard():
+    bot_guard.reset()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _test_jwt_secret(monkeypatch):
+    # mint_initial_tokens/create_room_with_password/refresh_access_token
+    # firman/decodifican JWT de verdad - necesitan un secreto con el que
+    # operar. No hace falta que sea el secreto real de ningun despliegue.
+    monkeypatch.setattr(settings, "supabase_jwt_secret", "secreto-de-prueba-para-tests-con-largo-de-sobra")
 
 
 @pytest.fixture(autouse=True)

@@ -1,4 +1,4 @@
-from app.services.sharedContent.security.password_hash import hash_password, verify_password
+from app.shared.security.password_hash import hash_password, verify_password
 
 
 def test_hash_password_permite_verificar_con_la_misma_contraseña():

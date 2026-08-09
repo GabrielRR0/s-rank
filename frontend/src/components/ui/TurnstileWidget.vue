@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { useTurnstile } from '../../composables/fileSharing/useTurnstile'
+import { useTurnstile } from '../../composables/useTurnstile'
 
 const emit = defineEmits<{ token: [string | null] }>()
 

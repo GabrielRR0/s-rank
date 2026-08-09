@@ -7,6 +7,9 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import settings
 from app.core.rate_limit import limiter
+from app.routers.secretChatAuth.secret_chat_auth_router import router as secret_chat_auth_router
+from app.routers.secretChatMedia.secret_chat_media_router import router as secret_chat_media_router
+from app.routers.secretVault.secret_vault_router import router as secret_vault_router
 from app.routers.sharedContent.shared_content_router import router as shared_content_router
 
 app = FastAPI(title="S-Rank API")
@@ -82,3 +85,6 @@ app.add_middleware(
 )
 
 app.include_router(shared_content_router)
+app.include_router(secret_vault_router)
+app.include_router(secret_chat_auth_router)
+app.include_router(secret_chat_media_router)

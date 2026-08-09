@@ -1,0 +1,25 @@
+# services/secretChat
+
+Capa sin estado del chat secreto S-Rank: nada de estos archivos usa `ref`/reactividad de Vue, eso vive en `composables/secretChat/`.
+
+## Archivos
+
+- **`crypto.service.ts`**: único archivo que toca `SubtleCrypto` (Web Crypto API nativa, sin `crypto-js`). Genera/exporta/importa la clave AES-GCM de la sala; cifra/descifra texto (`cifrarTexto`/`descifrarTexto`) y binario (`cifrarBinario`/`descifrarBinario`, para imagen/audio — mismo AES-GCM, sin el paso de `TextEncoder`/`TextDecoder`). La clave se codifica en base64url para viajar en el fragmento de la URL (`#hash`); `bytesABase64Url`/`base64UrlABytes` también se exportan porque `chatMedia.service.ts`/`vault.service.ts` los necesitan en el borde de red.
+- **`realtime.service.ts`**: singleton perezoso del cliente `@supabase/supabase-js` (primer uso de Supabase directo desde el frontend en este proyecto — hasta ahora solo el backend le hablaba, con la `service_role` key) + caché de canales Realtime por sala (`getRoomChannel(roomId)`, topic `room:<roomId>`, `private: true`) + `setRealtimeAuth(token)`, que aplica el access token emitido por el backend (ver `realtimeAuth.service.ts`) a la conexión ya abierta, sin reconectar. También expone `getPresenceKey(roomId)` — la clave de presencia aleatoria generada junto con el canal, necesaria para que `usePresenceCapacity.ts`/`useKickVote.ts` sepan "cuál soy yo".
+- **`chat.service.ts`**: forma de los tipos de mensaje que viajan por Broadcast y funciones para construirlos — `mensaje`, `media-pointer` (apunta a un item ya subido a `secretChatMedia`, ver más abajo), `vault-pointer`, `vault-copy-update`, `escribiendo`, y los 3 de expulsión por voto (`kick-vote-start`/`kick-vote-cast`/`kick-vote-kicked`, ver `useKickVote.ts`). Todo el contenido de estos envelopes que no sea un id/número/clave de presencia ya viene cifrado (`TextoCifrado` de `crypto.service.ts`) — el relay de Supabase nunca ve texto plano ni contenido real.
+- **`chatMedia.service.ts`**: llamadas `fetch` a `/api/secret-chat-media` — `uploadChatMedia` (`multipart/form-data`, sube el binario ya cifrado) y `fetchChatMedia` (JSON, el contenido vuelve codificado en base64url). Ver `backend/README.md` sección 15 para el porqué de que esto (a diferencia del resto del chat) sí pase por el backend.
+- **`vault.service.ts`**: llamadas `fetch` a los 4 endpoints de `/api/secret-vault` (mismo estilo que `services/fileSharing/sharing.service.ts`, incluida la clase `VaultError` para distinguir 410-agotado de un error de red) — `createVaultItem`/`fetchVaultItem`/`copyVaultItem` para texto, `createVaultMediaItem` (multipart) para imagen/audio.
+- **`sound.service.ts`**: sintetiza con Web Audio API (ruido blanco + filtro pasa-banda + envolvente de volumen) el sonido de "soplido" que se reproduce al registrar un mensaje (`useEphemeralMessages.agregar`). Sin archivo de audio ni dependencia nueva — mismo criterio minimalista que `crypto.service.ts`. Volumen pico bajo a propósito (`VOLUMEN_PICO = 0.05`).
+- **`realtimeAuth.service.ts`**: llamadas `fetch` a los 3 endpoints de `/api/secret-chat` — `createRoomWithPassword` (crear sala con contraseña), `fetchInitialTokens` (unirse a cualquier sala / crear una sin contraseña), `refreshAccessToken` (renovar el access token en segundo plano). `RealtimeAuthError` distingue 401 (contraseña incorrecta)/410 (sala vencida)/429 (bloqueado por `bot_guard`). Ver `backend/README.md` sección 14 y `composables/secretChat/README.md`.
+
+## Por qué imagen/audio pasan por el backend y el texto no
+
+Decisión deliberada, no una inconsistencia: Supabase Realtime Broadcast tiene un techo real de ~256KB por mensaje, insuficiente para una foto o un audio de calidad razonable. En vez de comprimir agresivamente para que entre igual, tanto el mensaje efímero (`chatMedia.service.ts`) como el Cofre (`vault.service.ts`'s `createVaultMediaItem`) suben el contenido ya cifrado a este backend (mismo techo ~10MB que `sharedContent`), que solo ve bytes opacos — nunca el contenido real. Ver `backend/README.md` sección 15.
+
+## Por qué la clave nunca pasa por `vault.service.ts`
+
+El Cofre cifra su contenido en el cliente (con `crypto.service.ts`, usando la clave de la sala) **antes** de llamar a `createVaultItem` — `vault.service.ts` solo transporta `ciphertext`/`nonce` ya generados, nunca la clave ni el plaintext. El backend administra el contador de copias sin poder ver el contenido en ningún momento (ver `backend/README.md` sección 12).
+
+## Por qué `VITE_SUPABASE_ANON_KEY` es segura de exponer acá
+
+Es la clave pública de Supabase, diseñada para vivir en el bundle de JavaScript (a diferencia de la `service_role` key, que solo usa el backend). Lo que la protege no es mantenerla en secreto sino Row Level Security del lado de las tablas — ver `backend/README.md` sección 12 para el detalle de qué políticas tiene `secret_vault_items`. Desde que existe `secretChatAuth` (sección 14), la anon key sola tampoco alcanza para usar los canales de Realtime del chat — hace falta además un token emitido por el backend, ver `realtimeAuth.service.ts`.

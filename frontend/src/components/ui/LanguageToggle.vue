@@ -23,15 +23,15 @@ const { locale, t, alternarLocale } = useLocale()
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
-  height: 1.75rem;
-  padding: 0 0.75rem;
+  gap: 0.25rem;
+  height: 1.5rem;
+  padding: 0.125rem 0.3125rem;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: var(--bg-surface);
+  background: var(--bg-inset);
   cursor: pointer;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   transition:
@@ -40,15 +40,21 @@ const { locale, t, alternarLocale } = useLocale()
 }
 
 .opcion {
+  padding: 0.1875rem 0.4375rem;
+  border-radius: 999px;
   color: var(--text-muted);
-  transition: color var(--duration-base) var(--ease-out);
+  transition:
+    color var(--duration-base) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out);
 }
 
 .opcion.activo {
-  color: var(--accent);
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
+  box-shadow: var(--shadow-glow-sm);
 }
 
 .separador {
-  color: var(--border);
+  display: none;
 }
 </style>
