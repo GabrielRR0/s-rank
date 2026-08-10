@@ -1,12 +1,13 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ disabled?: boolean; variant?: 'primary' | 'secondary' }>(), {
+withDefaults(defineProps<{ disabled?: boolean; variant?: 'primary' | 'secondary'; size?: 'md' | 'sm' }>(), {
   variant: 'primary',
+  size: 'md',
 })
 defineEmits<{ click: [] }>()
 </script>
 
 <template>
-  <button class="base-button" :class="variant" :disabled="disabled" @click="$emit('click')">
+  <button class="base-button" :class="[variant, size]" :disabled="disabled" @click="$emit('click')">
     <slot />
   </button>
 </template>
@@ -27,9 +28,19 @@ defineEmits<{ click: [] }>()
     color var(--duration-base) var(--ease-out);
 }
 
+/* Para botones metidos dentro de un contexto ya compacto (la Capsula
+   dentro del composer del chat, por ejemplo) - los CTA principales de
+   pantalla completa (Crear enlace, Crear sala) siguen usando el tamaño
+   por defecto ("md"), sin tocar. */
+.base-button.sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+}
+
 .base-button.primary {
   border: none;
-  background: var(--accent);
+  background: var(--accent-gradient);
+  box-shadow: var(--shadow-glow);
   color: var(--accent-contrast);
 }
 

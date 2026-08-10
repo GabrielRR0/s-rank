@@ -4,13 +4,13 @@ Todas las piezas de seguridad del dominio: proteger un share con contraseña, ga
 
 ## Archivos
 
-- **`password_hash.py`**: `hash_password`/`verify_password` sobre `bcrypt`. La contraseña nunca se guarda en texto plano - `shared_content_service.create_share` guarda solo el hash en `password_hash`.
 - **`one_time_access.py`**: `consume_view(share_id, client)` - el único punto del código que "quema" la vista única. Delega la atomicidad real a `StorageClient.mark_viewed_if_unseen` (una sola sentencia `UPDATE ... WHERE viewed_at IS NULL` en Postgres) y la traduce a `ShareUnavailableError` cuando pierde la carrera.
 - **`encryption.py`**: `encrypt_bytes`/`decrypt_bytes` con AES-256-GCM. Todo el contenido (texto y archivos) se encripta antes de guardarse en Supabase - ver "Por qué se encripta" más abajo.
 - **`safe_filename.py`**: `sanitize_file_name(file_name)` - neutraliza intentos de path traversal en el nombre de archivo subido antes de usarlo para construir la ruta de Storage.
 - **`lockout.py`**: `register_failed_attempt(share_id, max_attempts, client)` - lleva la cuenta de intentos de contraseña incorrecta por-share; si se supera el máximo, el share se autodestruye.
-- **`turnstile.py`**: `verify_turnstile_token(token)` - verificación anti-bot opcional (Cloudflare Turnstile) en la creación de shares, apagada por defecto vía `TURNSTILE_ENABLED`.
 - **`blocked_file_types.py`**: `is_blocked_file_type(file_name, mime_type)` - rechaza extensiones/Content-Type de ejecutables, scripts y documentos de Office con macros antes de aceptar un archivo. Ver "Por qué se bloquea por extensión y no se escanea el contenido" más abajo.
+
+`password_hash.py` y `turnstile.py` se mudaron a `app/shared/security/` (dejaron de ser específicos de este dominio en cuanto un segundo dominio - `secretChatAuth` - necesitó lo mismo). Este módulo los sigue usando vía ese import.
 
 ## Por qué la vista única se consume en el `reveal`, no en el simple `GET` de estado
 

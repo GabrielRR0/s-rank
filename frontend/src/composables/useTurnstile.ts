@@ -1,10 +1,11 @@
 import { ref } from 'vue'
 
 // Apagado por defecto: el proyecto depende del rate limiting y el resto del
-// hardening del backend por defecto (ver backend/README.md seccion 11).
+// hardening del backend por defecto (ver backend/README.md seccion 9).
 // Activable sin tocar codigo con VITE_TURNSTILE_ENABLED=true +
 // VITE_TURNSTILE_SITE_KEY (mas TURNSTILE_ENABLED/SECRET_KEY del lado del
-// backend, ver backend/.env.example).
+// backend, ver backend/.env.example). Generico: usado por fileSharing y
+// secretChat por igual (ver components/ui/TurnstileWidget.vue).
 export const TURNSTILE_ENABLED = import.meta.env.VITE_TURNSTILE_ENABLED === 'true'
 const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? ''
 

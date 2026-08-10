@@ -73,8 +73,9 @@ const opciones = computed(() =>
 }
 
 .opcion-expiracion.activo {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: transparent;
+  background: var(--accent-gradient);
+  box-shadow: var(--shadow-glow-sm);
   color: var(--accent-contrast);
 }
 

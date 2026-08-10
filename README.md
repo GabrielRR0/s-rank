@@ -2,29 +2,33 @@
 
 *Misiones rango S: acceso restringido, un solo intento, sin margen de error.*
 
-Compartir algo sensible: un enlace que se puede abrir una sola vez (o que expira solo, en máximo 24 horas) y que después desaparece de verdad. No se "oculta" — se borra.
+Dos misiones independientes, mismo criterio de fondo: nada queda guardado "por las dudas".
 
 ## Qué hace
 
-Pegas un texto o subes un archivo de hasta 10MB, eliges si quieres protegerlo con una contraseña y cuánto tiempo va a estar disponible como máximo, y te da un enlace. La persona que lo abre ve el contenido una única vez; después de eso, ese enlace deja de funcionar para siempre, sin importar si expiró, si ya se vio, o si alguien intentó adivinar la contraseña demasiadas veces.
+**Compartir algo sensible** (visualización única): pegás un texto o subís un archivo de hasta 10MB, elegís si protegerlo con contraseña y cuánto va a durar como máximo, y te da un enlace. Quien lo abre ve el contenido una única vez; después, ese enlace deja de funcionar para siempre — expiró, ya se vio, o alguien intentó adivinar la contraseña demasiadas veces, da igual. No se "oculta" — se borra.
+
+**Chat secreto** (salas efímeras): una sala de chat de 2-6 personas, cifrada de punta a punta con una clave que nunca toca ningún servidor. Los mensajes se autodestruyen solos después de unos segundos, imagen y audio tienen las mismas protecciones que el resto, cualquiera puede votar para expulsar a otro participante, y un "Cofre" permite compartir un dato puntual (una contraseña, un código) con un límite real de copias.
 
 Visualmente es minimalista a propósito: nada que distraiga de la única acción que importa en cada pantalla.
 
 ## Stack
 
-FastAPI en el backend, con Supabase como base de datos y storage. Vue 3 en el frontend, sin librerías de más — la app tiene literalmente dos pantallas (crear un enlace, verlo), así que ni siquiera hace falta un router.
+FastAPI en el backend, con Supabase como base de datos, storage y Realtime (para el chat). Vue 3 en el frontend, sin librerías de más — sin `vue-router`: un puñado de pantallas mutuamente excluyentes, nunca se navega entre ellas del lado del cliente.
 
 ## Seguridad
 
-Tanto el texto como los archivos se encriptan antes de tocar la base de datos (AES-256-GCM), con una clave que vive solo en el backend — ni Supabase ni nadie más la ve. No hay ninguna excepción: un texto pegado y un archivo subido pasan por el mismo cifrado antes de guardarse, solo cambia dónde queda cada uno (el texto ya cifrado en una columna de Postgres, el archivo ya cifrado en Supabase Storage). Aunque alguien accediera a los datos crudos de la base, se encontraría con bytes sin sentido en cualquiera de los dos casos.
+Texto y archivos se encriptan (AES-256-GCM) antes de tocar la base de datos, con una clave que vive solo en el backend — ni Supabase ni nadie más la ve. Aunque alguien accediera a los datos crudos, encontraría bytes sin sentido.
 
-La "vista única" es una garantía real, no una promesa de la interfaz: está resuelta con una sola operación atómica en la base de datos, así que si dos personas abren el mismo enlace casi al mismo tiempo, solo una de las dos puede llegar a ver el contenido.
+La "vista única" es una garantía real, no una promesa de interfaz: una operación atómica en la base de datos asegura que si dos personas abren el mismo enlace casi al mismo tiempo, solo una llega a ver el contenido.
 
-Los enlaces son prácticamente imposibles de adivinar — cada uno usa un identificador aleatorio de 122 bits, así que ni con mil millones de intentos por segundo alguien encontraría uno válido probando al azar. Una contraseña equivocada no gasta la única oportunidad de ver el contenido, pero repetirla demasiadas veces sí autodestruye el enlace, sin importar desde cuántas direcciones distintas se intente.
+Los enlaces son prácticamente imposibles de adivinar (identificador aleatorio de 122 bits). Una contraseña equivocada no gasta la única oportunidad de ver el contenido, pero repetirla demasiadas veces autodestruye el enlace.
 
-También se rechazan archivos ejecutables, scripts y documentos de Office con macros antes de aceptarlos. No es un antivirus — no abre ni analiza el contenido real del archivo — y esa es una decisión consciente: escanear de verdad implicaría mandar el archivo a un servicio externo antes de encriptarlo, justo lo que este proyecto intenta evitar.
+También se rechazan archivos ejecutables, scripts y documentos de Office con macros — no es un antivirus (no abre ni analiza el contenido real), decisión consciente: escanear de verdad implicaría mandar el archivo a un servicio externo antes de encriptarlo.
 
-Y para ser honesto sobre los límites: no hay forma de garantizar al 100% que "solo esta interfaz" puede hablar con la API — eso es así para cualquier aplicación pública sin cuentas de usuario, no un descuido de este proyecto en particular. Lo que sí tiene sentido, y está hecho, es sumar las capas que dan protección real: límites de velocidad agresivos, validación del origen de cada request, y un captcha opcional que queda apagado por defecto, para cuando haga falta más fricción contra bots.
+El chat secreto usa un modelo distinto: la clave de cifrado se genera en el navegador y viaja solo en el fragmento de la URL (`#clave`), que ningún servidor llega a ver nunca — a diferencia del enlace de visualización única, acá ni siquiera el backend podría descifrar el contenido aunque quisiera. Lo único que el servidor administra ahí es el contador de copias del Cofre y la autorización para entrar a una sala.
+
+Sobre los límites, con honestidad: no hay forma de garantizar al 100% que "solo esta interfaz" puede hablar con la API — cierto para cualquier app pública sin cuentas de usuario. Lo que sí suma protección real: límites de velocidad agresivos, validación del origen de cada request, y un captcha opcional apagado por defecto.
 
 ## Probarlo en local
 
@@ -45,7 +49,7 @@ npm install
 npm run dev
 ```
 
-Abre la URL que imprime Vite (por defecto `http://localhost:5173`), comparte un texto o un archivo, copia el enlace y ábrelo en otra pestaña para ver el flujo completo del lado de quien lo recibe.
+Abrí la URL que imprime Vite (por defecto `http://localhost:5173`). Para el enlace de visualización única: compartí un texto o un archivo, copiá el enlace y abrilo en otra pestaña para ver el flujo del lado de quien lo recibe. Para el chat: creá una sala secreta y entrá con el link generado (necesita las tablas/buckets extra de Supabase que documenta `backend/README.md` secciones 12, 14 y 15).
 
 ## Tests
 

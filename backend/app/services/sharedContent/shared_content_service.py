@@ -14,9 +14,21 @@ from app.services.sharedContent.security.blocked_file_types import is_blocked_fi
 from app.services.sharedContent.security.encryption import decrypt_bytes, encrypt_bytes
 from app.services.sharedContent.security.lockout import register_failed_attempt
 from app.services.sharedContent.security.one_time_access import consume_view
-from app.services.sharedContent.security.password_hash import hash_password, verify_password
 from app.services.sharedContent.security.safe_filename import sanitize_file_name
+from app.shared.security.password_hash import hash_password, verify_password
 from app.shared.storage.supabase_client import StorageClient
+
+
+def _decrypt_file_name(share: dict) -> str | None:
+    """`file_name`/`file_name_nonce` son None para shares de texto (nunca
+    tuvieron archivo) - de ahi el chequeo antes de decodificar."""
+    encrypted_name = share.get("file_name")
+    name_nonce = share.get("file_name_nonce")
+    if encrypted_name is None or name_nonce is None:
+        return None
+    ciphertext = base64.b64decode(encrypted_name)
+    nonce = base64.b64decode(name_nonce)
+    return decrypt_bytes(ciphertext, nonce).decode("utf-8")
 
 
 def create_share(
@@ -44,6 +56,7 @@ def create_share(
         "content_text": None,
         "storage_path": None,
         "file_name": None,
+        "file_name_nonce": None,
         "file_size": None,
         "file_type": None,
         "encryption_nonce": None,
@@ -83,10 +96,19 @@ def create_share(
         # este share dentro del bucket (ver security/safe_filename.py).
         safe_name = sanitize_file_name(file_name)
         ciphertext, nonce = encrypt_bytes(file_bytes)
-        storage_path = f"{share_id}/{safe_name}"
+        # "file" generico, no el nombre real: el contenido de la fila ya va
+        # cifrado (abajo), pero la ruta de Storage es un dato aparte - si
+        # llevara el nombre real, alguien con acceso directo al bucket (sin
+        # tocar la tabla) igual se enteraria del nombre original.
+        storage_path = f"{share_id}/file"
         client.upload_file(storage_path, ciphertext, mime_type)
         record["storage_path"] = storage_path
-        record["file_name"] = safe_name
+        # Nombre cifrado con su PROPIO nonce - nunca reutilizar el nonce del
+        # contenido: AES-GCM pierde sus garantias si el mismo nonce se usa
+        # dos veces bajo la misma clave para dos cifrados distintos.
+        name_ciphertext, name_nonce = encrypt_bytes(safe_name.encode("utf-8"))
+        record["file_name"] = base64.b64encode(name_ciphertext).decode("ascii")
+        record["file_name_nonce"] = base64.b64encode(name_nonce).decode("ascii")
         # Tamaño original (no el del ciphertext, que difiere en ~16 bytes
         # por el tag de autenticacion de GCM) - es lo que el usuario espera
         # ver reflejado.
@@ -125,8 +147,9 @@ def get_share_status(share_id: str, client: StorageClient) -> ShareStatus:
         # Se oculta hasta despues de verificar la contraseña (se revela
         # junto con el contenido en reveal_share) - sin esto, cualquiera
         # con el link pero sin la contraseña ya se enteraria del nombre del
-        # archivo.
-        file_name=None if requires_password else share.get("file_name"),
+        # archivo. Descifrado recien aca (no se guarda en texto plano en
+        # ningun momento, ver _decrypt_file_name).
+        file_name=None if requires_password else _decrypt_file_name(share),
     )
 
 
@@ -174,7 +197,7 @@ def reveal_share(
 
     encrypted_bytes = client.download_file(viewed_share["storage_path"])
     file_bytes = decrypt_bytes(encrypted_bytes, nonce)
-    file_name = viewed_share.get("file_name") or "archivo"
+    file_name = _decrypt_file_name(viewed_share) or "archivo"
     mime_type = viewed_share.get("file_type") or "application/octet-stream"
     purge_share(viewed_share, client)
     return file_bytes, file_name, mime_type

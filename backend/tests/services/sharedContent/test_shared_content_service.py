@@ -94,9 +94,52 @@ def test_create_share_de_archivo_sanitiza_el_nombre(fake_client):
     )
 
     stored = fake_client.get_share(result.id)
-    assert stored["file_name"] == "secreto.txt"
-    assert stored["storage_path"] == f"{result.id}/secreto.txt"
-    print(f"[test] OK: nombre sanitizado a '{stored['file_name']}'.")
+    # El nombre sanitizado ("secreto.txt") queda cifrado en la fila, no en
+    # texto plano - se verifica indirectamente via reveal_share, que es
+    # quien lo descifra (ver test_reveal_share_de_archivo_desencripta...).
+    assert stored["file_name"] != "secreto.txt"
+    assert stored["file_name_nonce"]
+    print("[test] OK: el nombre guardado no es el nombre plano (esta cifrado).")
+
+
+def test_create_share_de_archivo_no_filtra_el_nombre_por_el_storage_path(fake_client):
+    print("\n[test] create_share no incluye el nombre real en storage_path...")
+    result = shared_content_service.create_share(
+        content_type="file",
+        text=None,
+        file_bytes=b"contenido",
+        file_name="contrato_confidencial.pdf",
+        file_mime_type="application/pdf",
+        password=None,
+        expires_in_minutes=60,
+        max_file_bytes=MAX_FILE_BYTES,
+        client=fake_client,
+    )
+
+    stored = fake_client.get_share(result.id)
+    assert "contrato_confidencial" not in stored["storage_path"]
+    assert stored["storage_path"] == f"{result.id}/file"
+    print("[test] OK: storage_path no revela el nombre real del archivo.")
+
+
+def test_reveal_share_de_archivo_descifra_el_nombre_original(fake_client):
+    print("\n[test] reveal_share devuelve el nombre de archivo descifrado...")
+    created = shared_content_service.create_share(
+        content_type="file",
+        text=None,
+        file_bytes=b"contenido",
+        file_name="../../otro-share/secreto.txt",
+        file_mime_type="text/plain",
+        password=None,
+        expires_in_minutes=60,
+        max_file_bytes=MAX_FILE_BYTES,
+        client=fake_client,
+    )
+
+    _, file_name, _ = _reveal(fake_client, created.id)
+
+    assert file_name == "secreto.txt"
+    print(f"[test] OK: nombre descifrado correctamente a '{file_name}'.")
 
 
 def test_get_share_status_de_share_inexistente(fake_client):

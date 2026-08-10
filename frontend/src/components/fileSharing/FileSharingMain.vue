@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { useLocale } from '../../i18n/useLocale'
 import { useUpload } from '../../composables/fileSharing/useUpload'
-import { TURNSTILE_ENABLED } from '../../composables/fileSharing/useTurnstile'
+import { TURNSTILE_ENABLED } from '../../composables/useTurnstile'
 import BaseAlert from '../ui/BaseAlert.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseCard from '../ui/BaseCard.vue'
+import PasswordToggle from '../ui/PasswordToggle.vue'
+import SegmentedToggle from '../ui/SegmentedToggle.vue'
+import TurnstileWidget from '../ui/TurnstileWidget.vue'
 import ExpirationSelector from './ExpirationSelector.vue'
-import PasswordToggle from './PasswordToggle.vue'
 import ShareResult from './ShareResult.vue'
-import TurnstileWidget from './TurnstileWidget.vue'
 import UploadZone from './UploadZone.vue'
 
 const { t } = useLocale()
@@ -35,28 +36,13 @@ const {
     <ShareResult v-if="resultado" :resultado="resultado" @reiniciar="reiniciar" />
 
     <form v-else class="formulario" @submit.prevent="crear">
-      <div class="tabs" role="tablist">
-        <button
-          type="button"
-          class="tab"
-          role="tab"
-          :aria-selected="modo === 'text'"
-          :class="{ activo: modo === 'text' }"
-          @click="modo = 'text'"
-        >
-          {{ t.tabText }}
-        </button>
-        <button
-          type="button"
-          class="tab"
-          role="tab"
-          :aria-selected="modo === 'file'"
-          :class="{ activo: modo === 'file' }"
-          @click="modo = 'file'"
-        >
-          {{ t.tabFile }}
-        </button>
-      </div>
+      <SegmentedToggle
+        v-model="modo"
+        :opciones="[
+          { valor: 'text', etiqueta: t.tabText },
+          { valor: 'file', etiqueta: t.tabFile },
+        ]"
+      />
 
       <textarea
         v-if="modo === 'text'"
@@ -72,7 +58,7 @@ const {
 
       <!-- Apagado por defecto (TURNSTILE_ENABLED via VITE_TURNSTILE_ENABLED)
            - sin la variable de entorno, este widget ni se monta ni carga el
-           script de Cloudflare (ver composables/fileSharing/useTurnstile.ts). -->
+           script de Cloudflare (ver composables/useTurnstile.ts). -->
       <TurnstileWidget v-if="TURNSTILE_ENABLED" @token="turnstileToken = $event" />
 
       <BaseAlert :mensajes="errores.length ? errores : errorCreacion ? [errorCreacion] : []" />
@@ -85,47 +71,22 @@ const {
 </template>
 
 <style scoped>
+.file-sharing-main {
+  width: 100%;
+  max-width: 30rem;
+}
+
 .formulario {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
-.tabs {
-  display: inline-flex;
-  align-self: flex-start;
-  padding: 0.25rem;
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  border: 1px solid var(--border);
-}
-
-.tab {
-  padding: 0.5rem 1.25rem;
-  border: none;
-  border-radius: calc(var(--radius-sm) - 2px);
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-
-.tab.activo {
-  background: var(--bg-surface);
-  color: var(--text-h);
-  box-shadow: var(--shadow-sm);
-}
-
 .campo-texto {
   padding: 0.875rem 1rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--bg-surface);
+  background: var(--bg-inset);
   color: var(--text-h);
   font: inherit;
   font-size: 0.9375rem;

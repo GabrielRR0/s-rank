@@ -10,7 +10,7 @@ from app.schemas.sharedContent.shared_content_schemas import (
 )
 from app.services.sharedContent import shared_content_service
 from app.services.sharedContent.errors import ShareUnauthorizedError, ShareUnavailableError
-from app.services.sharedContent.security.turnstile import verify_turnstile_token
+from app.shared.security.turnstile import verify_turnstile_token
 from app.shared.storage.supabase_client import StorageClient, get_storage_client
 
 router = APIRouter(prefix="/api/shared-content", tags=["shared-content"])

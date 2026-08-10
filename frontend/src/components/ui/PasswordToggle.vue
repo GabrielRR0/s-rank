@@ -70,8 +70,8 @@ const { t } = useLocale()
 }
 
 .switch.activo {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-gradient);
+  border-color: transparent;
 }
 
 .perilla {
@@ -99,7 +99,7 @@ const { t } = useLocale()
   padding: 0.625rem 0.875rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--bg-surface);
+  background: var(--bg-inset);
   color: var(--text-h);
   font: inherit;
   font-size: 0.9375rem;

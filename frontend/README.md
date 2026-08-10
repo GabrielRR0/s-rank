@@ -1,78 +1,53 @@
 # Frontend — S-Rank (Vue 3 + Vite)
 
-Crea un enlace temporal para compartir texto o un archivo, y la pantalla que ve quien lo abre. Bilingüe (español/inglés) y con tema claro/oscuro, ver `src/i18n/README.md` y `src/style.css`.
+Dos misiones independientes. **Compartir texto/archivo** (`components/fileSharing/`): genera un enlace de visualización única (se abre una sola vez y desaparece) y la pantalla que ve quien lo abre — ver `components/fileSharing/README.md`. **Chat secreto** (`components/secretChat/`): salas efímeras de 2-6 personas cifradas de punta a punta (la clave nunca toca el backend), con mensajes que se autodestruyen solos, imagen/audio con las mismas protecciones, expulsión por voto, y un "Cofre" para compartir un dato con un límite de copias — ver `components/secretChat/README.md`. Bilingüe (español/inglés) y con tema claro/oscuro — ver `src/i18n/README.md` y `src/style.css`.
 
-## 1. Requisitos
+## 1. Cómo ejecutarlo
 
-- Node.js 20+ (`node --version` para verificar).
-- El backend corriendo (ver `../backend/README.md`) — este frontend no genera ni guarda nada por sí solo.
-
-## 2. Cómo ejecutarlo paso a paso
-
-Todos los comandos se corren **desde la carpeta `frontend/`**.
-
-### 2.1 Instalar las dependencias
+Requisitos: Node.js 20+, y el backend corriendo (ver `../backend/README.md`) — este frontend no genera ni guarda nada por sí solo. Todo desde la carpeta `frontend/`:
 
 ```
 npm install
-```
-
-### 2.2 Levantar el servidor de desarrollo
-
-```
 npm run dev
 ```
-
-Imprime una URL, normalmente `http://localhost:5173`. Las llamadas a `/api/shared-content/...` se redirigen automáticamente al backend en `http://localhost:8000` vía el proxy configurado en `vite.config.ts`.
-
-### 2.3 Build de producción
+Imprime una URL (normalmente `http://localhost:5173`); las llamadas a `/api/...` se redirigen al backend en `http://localhost:8000` vía el proxy de `vite.config.ts`.
 
 ```
 npm run build
 ```
+Corre el chequeo de tipos (`vue-tsc -b`) y genera `dist/`.
 
-Corre el chequeo de tipos (`vue-tsc -b`) y genera los archivos estáticos en `dist/`.
-
-## 3. Cómo correr los tests
+## 2. Tests
 
 ```
 npm run test
 ```
+Vitest una sola vez sobre los `*.spec.ts` co-ubicados junto al código que prueban.
 
-Corre Vitest una sola vez sobre los archivos `*.spec.ts` co-ubicados junto al código que prueban.
+## 3. Variables de entorno
 
-## 4. Variables de entorno
+Copiar `.env.example` a `.env` solo si hace falta:
 
-Copiar `.env.example` a `.env` solo si el backend **no** está en `localhost:8000`:
+- `VITE_API_BASE_URL`: URL del backend. Sin definirla, rutas relativas (funcionan en dev por el proxy) — **obligatoria en producción** si frontend/backend quedan en dominios distintos.
+- `VITE_TURNSTILE_ENABLED` / `VITE_TURNSTILE_SITE_KEY`: captcha de Cloudflare, apagado por defecto.
 
-- `VITE_API_BASE_URL`: URL base del backend. Sin definirla, las llamadas usan rutas relativas, que funcionan en dev gracias al proxy. **En producción es obligatoria** si el frontend y el backend quedan en dominios distintos.
-- `VITE_TURNSTILE_ENABLED` / `VITE_TURNSTILE_SITE_KEY`: captcha invisible de Cloudflare en la creación de shares, apagado por defecto (ver `backend/README.md` sección 11 y `src/composables/fileSharing/README.md`).
-
-## 5. Estructura del proyecto
+## 4. Estructura
 
 ```
 src/
-  App.vue                       # decide entre crear un share ("/") o verlo ("/s/:id")
-  main.ts
-  style.css                     # variables de diseño -> ver ../DESIGN.md (raíz del portafolio)
-  components/
-    fileSharing/                # -> ver README.md de la carpeta
-    ui/                         # -> ver README.md de la carpeta
-  composables/fileSharing/      # -> ver README.md de la carpeta
-  services/fileSharing/         # -> ver README.md de la carpeta
-  utils/validators/             # -> ver README.md de la carpeta
-  i18n/                         # -> ver README.md de la carpeta
+  App.vue                  # crear un share ("/"), verlo ("/s/:id"), o el chat ("/chat/:id")
+  style.css                 # variables de diseño -> ../DESIGN.md (raíz del portafolio)
+  components/ composables/ services/    # una carpeta por dominio (fileSharing, secretChat) + ui/ compartido - cada una con su README.md
+  utils/validators/ i18n/
 ```
 
-## 6. Decisiones de arquitectura (por qué está así)
+## 5. Decisiones de arquitectura
 
-- **Sin `vue-router`**: la app tiene exactamente dos pantallas (crear un share, verlo) y nunca se navega entre ellas del lado del cliente — se llega a una o a la otra según cómo se abrió la página. `App.vue` decide con una expresión regular sobre `window.location.pathname`; una librería de ruteo completa sería sobredimensionada, mismo criterio que llevó a `contract-generator` a evitar `axios`/`vue-i18n`.
-- **`fetch` nativo, no `axios`**: mismo motivo que `contract-generator` — pocas llamadas HTTP simples.
-- **El botón "Ver contenido" siempre requiere un click explícito**, incluso sin contraseña: evita que la vista única se consuma por un simple acceso a la página. Ver `composables/fileSharing/README.md`.
-- **Imágenes se muestran inline, el resto de los archivos se descargan**: el backend preserva el `Content-Type` original; el frontend decide la UI según `blob.type`. Ver `components/fileSharing/README.md`.
-- **`prefers-reduced-motion` sí se respeta** (a diferencia de `contract-generator`, que lo desactivó por pedido puntual del usuario en ese proyecto): se sigue la regla tal como está en `../DESIGN.md`.
-- **Acento violeta**, distinto del azul de `contract-generator`, para diferenciar visualmente este proyecto dentro del portafolio (`DESIGN.md` #1.5).
-- **`VITE_API_BASE_URL` opcional en dev**: mismo motivo que `contract-generator` — cero configuración para levantar el proyecto localmente.
-- **Expiración tope de 24hs**: el contenido de este proyecto es delicado y se espera que el destinatario lo vea casi de inmediato (ver `backend/README.md`).
-- **Turnstile apagado por defecto, activable sin tocar código**: `TurnstileWidget.vue` ni se monta ni carga el script de Cloudflare a menos que `VITE_TURNSTILE_ENABLED=true` — el proyecto depende del rate limiting y el resto del hardening del backend por defecto.
-- **`<meta name="referrer" content="no-referrer">` en `index.html`**: el id del share vive en la URL (`/s/:id`) — sin esto, el navegador podría filtrar esa URL completa como `Referer` a cualquier sitio externo al que se navegue desde ahí. Ver `backend/README.md` sección 11.
+- **Sin `vue-router`**: pantallas mutuamente excluyentes, nunca se navega entre ellas del lado del cliente — `App.vue` decide con una regex sobre `window.location.pathname`. Una librería de ruteo completa sería sobredimensionada.
+- **`fetch` nativo, no `axios`**: pocas llamadas HTTP simples.
+- **"Ver contenido" siempre requiere un click explícito**, incluso sin contraseña — evita que la vista única se consuma por un simple acceso a la página.
+- **Imágenes y audio se muestran inline, el resto se descarga**: el backend preserva el `Content-Type`; el frontend decide según `blob.type`.
+- **Acento violeta**, para diferenciar este proyecto dentro del portafolio.
+- **Expiración tope de 24hs**: contenido delicado, se espera que se vea casi de inmediato.
+- **Turnstile apagado por defecto**: `TurnstileWidget.vue` ni se monta ni carga el script de Cloudflare sin `VITE_TURNSTILE_ENABLED=true`.
+- **`<meta name="referrer" content="no-referrer">`**: el id del share vive en la URL (`/s/:id`) — sin esto, el navegador podría filtrarla como `Referer` al navegar a un link externo.
