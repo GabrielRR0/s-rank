@@ -2,6 +2,7 @@
 import { useLocale } from '../../i18n/useLocale'
 import { useClipboard } from '../../composables/useClipboard'
 import type { Ocupante } from '../../composables/secretChat/usePresenceCapacity'
+import AppLogo from '../ui/AppLogo.vue'
 import OccupantList from './OccupantList.vue'
 
 defineProps<{ ocupantes: Ocupante[]; abierto: boolean; objetivoVoto: string | null }>()
@@ -18,6 +19,9 @@ function compartirEnlace() {
 <template>
   <aside class="chat-sidebar" :class="{ abierto }">
     <div class="sidebar-header">
+      <a href="/" class="marca-mini">
+        <AppLogo />
+      </a>
       <p class="titulo">{{ t.chatSidebarHeading }}</p>
       <button type="button" class="boton-cerrar" :aria-label="t.chatSidebarCloseAria" @click="emit('cerrar')">
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -53,12 +57,23 @@ function compartirEnlace() {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.875rem 1rem;
+  gap: 0.625rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border);
 }
 
+/* Unico rastro de la marca dentro de una sala - la topbar global de App.vue
+   se oculta del todo aca (ver App.vue), asi que el isotipo se muda a este
+   header en vez de desaparecer sin dejar rastro. Mismo destino ("/") que
+   tenia el logo grande. */
+.marca-mini {
+  flex-shrink: 0;
+  display: flex;
+}
+
 .titulo {
+  flex: 1;
+  min-width: 0;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-muted);

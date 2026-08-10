@@ -118,6 +118,7 @@ const mayoriaVoto = computed(() => Math.floor(listaOcupantes.value.length / 2) +
           </div>
 
           <div class="chat-footer">
+            <VaultComposer :clave="clave" :room-id="roomId" @compartido="compartirVault" />
             <MessageComposer
               :clave="clave"
               :room-id="roomId"
@@ -126,7 +127,6 @@ const mayoriaVoto = computed(() => Math.floor(listaOcupantes.value.length / 2) +
               @enviar-media="enviarMedia"
               @compartido="compartirVault"
             />
-            <VaultComposer :clave="clave" :room-id="roomId" @compartido="compartirVault" />
           </div>
         </div>
       </div>
@@ -165,11 +165,21 @@ const mayoriaVoto = computed(() => Math.floor(listaOcupantes.value.length / 2) +
   background: var(--bg-surface);
 }
 
+/* El fondo (textura de puntos + --bg) vive aca, no en .chat-body - header y
+   footer son paneles translucidos con blur que se superponen a ESTE mismo
+   fondo compartido, en vez de cada uno definir su propio color. Sin esto,
+   .chat-footer terminaba con un tono ligeramente distinto al de .chat-body
+   (bg-surface vs bg), notandose como un parche en vez de una sola superficie
+   continua vista a traves de dos paneles de vidrio. */
 .panel-principal {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--accent) 12%, transparent) 1px, transparent 0) 0 0 /
+      18px 18px,
+    var(--bg);
 }
 
 .chat-body {
@@ -177,23 +187,37 @@ const mayoriaVoto = computed(() => Math.floor(listaOcupantes.value.length / 2) +
   min-height: 0;
   display: flex;
   flex-direction: column;
-  /* Textura sutil de puntos en el acento del proyecto - el unico toque
-     "sigiloso" de fondo, sin salirse de la paleta de un solo acento que
-     pide DESIGN.md. */
-  background:
-    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--accent) 12%, transparent) 1px, transparent 0) 0 0 /
-      18px 18px,
-    var(--bg);
 }
 
+/* Panel de vidrio, mismo lenguaje que .app-topbar en App.vue: translucido +
+   blur en vez de una superficie solida, separado del area de mensajes con
+   un borde superior apenas visible (no una linea dura) en vez de un bloque
+   opaco pegado abajo. */
 .chat-footer {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-top: 1px solid var(--border);
-  background: var(--bg-surface);
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  /* --bg (no --bg-surface) para matchear el mismo fondo de .panel-principal
+     que se ve a traves de .chat-body - y un toque de --accent mezclado
+     adentro, sin el cual se leia como gris plano en vez del violeta del
+     resto de la app, sobre todo semi-transparente. Mismo truco que
+     .vault-card. */
+  background: color-mix(in srgb, var(--accent) 8%, color-mix(in srgb, var(--bg) 62%, transparent));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* En mobile ya no flota separado con margen propio - queda al ras de los
+   bordes igual que .chat-body (mismo fondo compartido, ver .panel-principal
+   arriba), solo con las esquinas de arriba redondeadas (asimetricas a
+   proposito) para separarse visualmente del area de mensajes. */
+@media (max-width: 480px) {
+  .chat-footer {
+    border-radius: 28px 20px 0 0;
+  }
 }
 
 .fade-swap-enter-active,

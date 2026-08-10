@@ -7,6 +7,7 @@ import ViewContent from './components/fileSharing/ViewContent.vue'
 import AppAvatar from './components/ui/AppAvatar.vue'
 import AppFooter from './components/ui/AppFooter.vue'
 import AppLogo from './components/ui/AppLogo.vue'
+import HeaderMenu from './components/ui/HeaderMenu.vue'
 import LanguageToggle from './components/ui/LanguageToggle.vue'
 import ThemeToggle from './components/ui/ThemeToggle.vue'
 import { apodoActual } from './composables/secretChat/useRoomNickname'
@@ -32,21 +33,45 @@ const chatRoomId = computed(() => window.location.pathname.match(/^\/chat\/([^/]
 
 // Solo relevante en "/" (ni shareId ni chatRoomId presentes) - decide entre
 // crear un share de archivo o crear una sala de chat secreto. Estado local,
-// no afecta la URL: no hay nada que compartir de este toggle en si mismo.
-const modoInicio = ref<'compartir' | 'chat'>('compartir')
+// no afecta la URL en el toggle en si (no hay nada que compartir de eso) -
+// pero SI se lee de "?modo=chat" al cargar, para que volver desde adentro
+// de una sala (ver irAModo) pueda pedir el inicio ya en modo chat.
+const modoInicio = ref<'compartir' | 'chat'>(
+  new URLSearchParams(window.location.search).get('modo') === 'chat' ? 'chat' : 'compartir',
+)
 const indiceModo = computed(() => (modoInicio.value === 'compartir' ? 0 : 1))
+
+// Adentro de una sala, "chatRoomId" nunca cambia solo con tocar el toggle
+// (no hay ruteo del lado del cliente) - las pestañas quedaban ahi sin hacer
+// nada. Con una sala activa, elegir una pestaña navega de verdad de vuelta a
+// "/" (recarga completa, mismo patron que el resto de la app - ver arriba).
+function irAModo(modo: 'compartir' | 'chat') {
+  if (chatRoomId.value) {
+    window.location.href = modo === 'chat' ? '/?modo=chat' : '/'
+    return
+  }
+  modoInicio.value = modo
+}
+
+// Mismo patron que irAModo: sin ruteo del lado del cliente, "salir" de una
+// sala es simplemente navegar de verdad de vuelta a "/".
+function salirDeLaSala() {
+  window.location.href = '/'
+}
 </script>
 
 <template>
   <div class="app-shell">
-    <!-- Barra superior compacta tipo app (marca + pestañas + controles) en
-         vez del hero grande centrado de antes - en el chat, ChatHeader.vue
-         (dentro de ChatRoomMain) ya cumple ese rol a pantalla completa. -->
-    <header class="app-topbar" :class="{ 'app-topbar--chat': chatRoomId }">
-      <div class="marca">
+    <!-- Barra superior compacta tipo app (marca + pestañas + controles) -
+         se oculta del todo dentro de una sala: ChatHeader.vue (dentro de
+         ChatRoomMain) ya cumple ese rol ahi, y tener las dos apiladas se
+         sentia redundante. El isotipo (sin el resto) vive aparte, junto al
+         encabezado del sidebar de la sala - ver ChatSidebar.vue. -->
+    <header v-if="!chatRoomId" class="app-topbar">
+      <a href="/" class="marca">
         <AppLogo />
         <span class="marca-nombre">{{ t.appTitle }}</span>
-      </div>
+      </a>
 
       <nav v-if="!shareId" class="tabs-nav" role="tablist">
         <span class="indicador" aria-hidden="true" :style="{ transform: `translateX(${indiceModo * 100}%)` }"></span>
@@ -56,7 +81,7 @@ const indiceModo = computed(() => (modoInicio.value === 'compartir' ? 0 : 1))
           role="tab"
           :aria-selected="modoInicio === 'compartir'"
           :class="{ activo: modoInicio === 'compartir' }"
-          @click="modoInicio = 'compartir'"
+          @click="irAModo('compartir')"
         >
           <svg class="tab-icono" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path d="M10 3a1 1 0 011 1v7.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 11.586V4a1 1 0 011-1z" />
@@ -70,7 +95,7 @@ const indiceModo = computed(() => (modoInicio.value === 'compartir' ? 0 : 1))
           role="tab"
           :aria-selected="modoInicio === 'chat'"
           :class="{ activo: modoInicio === 'chat' }"
-          @click="modoInicio = 'chat'"
+          @click="irAModo('chat')"
         >
           <svg class="tab-icono" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path
@@ -84,9 +109,14 @@ const indiceModo = computed(() => (modoInicio.value === 'compartir' ? 0 : 1))
       </nav>
 
       <div class="controles-topbar">
-        <LanguageToggle />
-        <ThemeToggle />
-        <AppAvatar v-if="apodoActual" :inicial="inicialAvatar" />
+        <LanguageToggle class="control-ancho" />
+        <ThemeToggle class="control-ancho" />
+        <AppAvatar v-if="apodoActual" class="control-ancho" :inicial="inicialAvatar" />
+        <!-- En mobile no hay lugar para 3 controles sueltos + el avatar sin
+             que el header se sienta apretado - se agrupan en un unico menu
+             (ver App.vue ≤480px), donde tambien vive "salir de la sala"
+             (accion que solo tiene sentido ahi, no en el header de escritorio). -->
+        <HeaderMenu class="control-angosto" :mostrar-salir="!!chatRoomId" @salir="salirDeLaSala" />
       </div>
     </header>
 
@@ -149,6 +179,13 @@ const indiceModo = computed(() => (modoInicio.value === 'compartir' ? 0 : 1))
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.marca:hover {
+  opacity: 0.85;
 }
 
 .marca-nombre {
@@ -183,6 +220,11 @@ const indiceModo = computed(() => (modoInicio.value === 'compartir' ? 0 : 1))
   position: relative;
   z-index: 1;
   flex: 1;
+  /* Sin esto, <button> con flex:1/flex-basis:0% igual toma un min-width
+     "auto" bastante mas ancho que su propio contenido (gotcha conocido de
+     flexbox con elementos de formulario) - en la version solo-icono de
+     mobile, ese piso invisible casi triplicaba el ancho real del pill. */
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -198,7 +240,6 @@ const indiceModo = computed(() => (modoInicio.value === 'compartir' ? 0 : 1))
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
-  min-width: 80px;
   transition: color var(--duration-fast) var(--ease-out);
 }
 
@@ -221,6 +262,13 @@ const indiceModo = computed(() => (modoInicio.value === 'compartir' ? 0 : 1))
   gap: 0.625rem;
 }
 
+/* Idioma/tema/avatar sueltos en pantallas con lugar de sobra; el menu
+   agrupado (HeaderMenu) solo en mobile, ver @media ≤480px mas abajo donde
+   se invierte cual de los dos se muestra. */
+.control-angosto {
+  display: none;
+}
+
 /* padding-top = altura de .app-topbar (3.625rem, ahora fuera del flujo
    normal) + el mismo respiro de 2rem que ya tenia antes - preserva la
    posicion visual del contenido tal cual estaba, ahora que el header pasa
@@ -232,8 +280,11 @@ const indiceModo = computed(() => (modoInicio.value === 'compartir' ? 0 : 1))
   padding: 5.625rem 1.5rem 3rem;
 }
 
+/* Sin offset: a diferencia de .app-content (que compensa la topbar
+   superpuesta), dentro de una sala no hay topbar global que compensar - ver
+   arriba, se oculta del todo. ChatHeader.vue empieza pegado arriba del todo. */
 .app-content--chat {
-  padding: 3.625rem 0 0;
+  padding: 0;
   overflow: hidden;
 }
 
@@ -246,29 +297,48 @@ const indiceModo = computed(() => (modoInicio.value === 'compartir' ? 0 : 1))
 }
 
 @media (max-width: 480px) {
+  /* Sin esto, marca/controles-topbar (flex:1 cada uno) se estiran a cajas
+     de igual ancho aunque su contenido no pese lo mismo (el isotipo solo
+     vs. ES/EN+tema+avatar) - la marca quedaba con una caja invisible mas
+     ancha que su propio icono, mostrando un hueco grande a su derecha que
+     no tiene equivalente del lado de los controles. space-between sobre
+     cajas ajustadas a su contenido reparte el espacio libre en partes
+     iguales a los dos lados del pill central, sin cajas fantasma. */
   .app-topbar {
     padding: 0 1rem;
+    justify-content: space-between;
   }
 
-  /* Dentro de una sala esta topbar global desaparece por completo en mobile
-     (ChatHeader.vue ya cubre marca/controles ahi) - en tablet y desktop se
-     mantiene visible arriba de la sala, ver captura de referencia. */
-  .app-topbar.app-topbar--chat {
-    display: none;
-  }
-
-  /* Sin topbar global visible aca, .app-content--chat no necesita el
-     padding-top que reserva su lugar en pantallas mas anchas. */
-  .app-content--chat {
-    padding-top: 0;
+  .marca {
+    flex: 0 0 auto;
   }
 
   .controles-topbar {
+    flex: 0 0 auto;
     gap: 0.5rem;
+  }
+
+  /* Idioma/tema/avatar sueltos ya no entran comodos en una fila tan angosta
+     - se agrupan en HeaderMenu (menu desplegable), y el avatar se saca del
+     todo (no se mueve al menu, se pidio removerlo directamente aca). */
+  .control-ancho {
+    display: none;
+  }
+
+  .control-angosto {
+    display: inline-flex;
   }
 
   .app-content {
     padding: 5.125rem 1rem 2rem;
+  }
+
+  /* Misma especificidad que la regla de arriba - sin repetirla aca, esa
+     ganaria por orden de aparicion en el archivo y el chat quedaria con el
+     padding del formulario de compartir en vez del suyo (bug real ya
+     encontrado una vez, ver commits previos). */
+  .app-content--chat {
+    padding: 0;
   }
 
   /* En mobile todo se mantiene en una sola fila superior en vez de mover

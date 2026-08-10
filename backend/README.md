@@ -13,6 +13,13 @@ Recibe texto o un archivo (`POST /api/shared-content`) y devuelve un id de enlac
 
 ## 3. Cómo ejecutarlo paso a paso
 
+> **¿Ya corriste esto antes en esta máquina?** (venv creado, dependencias instaladas, `.env` completo, tablas de Supabase ya existen) — no hace falta releer todo, son 2 comandos desde `backend/`:
+> ```
+> .venv\Scripts\Activate.ps1
+> uvicorn app.main:app --reload --port 8000
+> ```
+> (`source .venv/Scripts/activate` en Git Bash, `source .venv/bin/activate` en macOS/Linux, en vez del primero). Si `uvicorn` no se reconoce como comando después de esto, el venv no se activó — confirmalo mirando si el prompt empieza con `(.venv)`. Si es la primera vez en esta máquina, seguí los 5 pasos completos de abajo.
+
 Todo desde la carpeta `backend/`. Estos 5 pasos alcanzan para tener corriendo la misión **Compartir algo sensible**. Si además querés probar **Chat secreto** en local, hace falta configuración adicional de Supabase — ver el aviso al final de esta sección, no la saltees pensando que ya terminaste.
 
 **Paso 1 — Entorno virtual**
@@ -31,29 +38,9 @@ Activarlo (elegí tu shell/sistema operativo):
 pip install -r requirements.txt
 ```
 
-**Paso 3 — Proyecto de Supabase**: crear uno gratis en [supabase.com](https://supabase.com), luego en **SQL Editor** correr:
-```sql
-create table shared_content (
-  id uuid primary key,
-  content_type text not null,
-  content_text text,
-  storage_path text,
-  file_name text,
-  file_name_nonce text,
-  file_size integer,
-  file_type text,
-  password_hash text,
-  encryption_nonce text,
-  failed_password_attempts integer not null default 0,
-  expires_at timestamptz not null,
-  viewed_at timestamptz,
-  created_at timestamptz not null default now()
-);
-alter table shared_content enable row level security;
--- Sin políticas públicas: el backend accede con la service role key
--- (bypassea RLS); el frontend nunca habla directo con Supabase.
-```
-En **Storage**, crear un bucket privado `s-rank-content`.
+**Paso 3 — Proyecto de Supabase**: crear uno gratis en [supabase.com](https://supabase.com), luego en **SQL Editor** pegar y correr todo [`backend/supabase_setup.sql`](supabase_setup.sql) de una sola vez — es el único lugar del proyecto con el SQL real, no hay que ir juntando bloques de distintas secciones de este README. Cubre `shared_content` (esta misión) y, de paso, las tablas del chat (secciones 12/14/15) — correrlas de más aunque no uses el chat no rompe nada.
+
+En **Storage**, crear un bucket privado `s-rank-content` (los otros 2 buckets del chat, `secret-vault-media` y `secret-chat-media`, solo hacen falta si vas a probar Chat secreto - ver el aviso al final de esta sección).
 
 **Paso 4 — Variables de entorno**: copiar `.env.example` a `.env`. Casi todas ya vienen con un default razonable (ver sección 7) — de esa lista larga, solo estas son **obligatorias** para que el server arranque y funcione:
 - `SUPABASE_URL` / `SUPABASE_KEY`: en **Project Settings → API**, copiar la **URL** y la **service_role key** (no la `anon` — el backend borra objetos de Storage).
@@ -71,7 +58,12 @@ uvicorn app.main:app --reload --port 8000
 ```
 Cómo confirmar que funciona: abrir `http://localhost:8000/docs` en el navegador — si carga el Swagger UI, el server está corriendo y conectado.
 
-> **¿Vas a probar el Chat secreto además de "Compartir algo sensible"?** Los 5 pasos de arriba solo preparan la tabla `shared_content`. El chat necesita 3 tablas más, 2 buckets más, una función SQL y una variable de entorno extra (`SUPABASE_JWT_SECRET`, distinta de `SUPABASE_KEY`) — todo eso está en las secciones **12** (Cofre), **14** (autorización de Realtime) y **15** (imagen/audio del chat) de este mismo archivo, en ese orden. Sin ese setup extra, `POST /api/shared-content` funciona perfecto pero cualquier endpoint de `/api/secret-chat*` falla.
+> **¿Vas a probar el Chat secreto además de "Compartir algo sensible"?** El SQL ya está cubierto si corriste `supabase_setup.sql` completo (Paso 3) - falta solo esto, nada de SQL:
+> 1. Los 2 buckets de Storage que quedaron pendientes: `secret-vault-media`, `secret-chat-media` (privados, igual que `s-rank-content`).
+> 2. `SUPABASE_JWT_SECRET` en `.env` (**Project Settings → API → JWT Settings** - distinto de `SUPABASE_KEY`).
+> 3. **Project Settings → Realtime**: desactivar "Allow public access" - sin esto, las políticas de `realtime.messages` quedan bypasseadas. Ver sección 14 para el detalle de por qué y cuándo conviene hacerlo.
+>
+> Sin este setup extra, `POST /api/shared-content` funciona perfecto pero cualquier endpoint de `/api/secret-chat*` falla. El detalle/rationale de cada pieza está en las secciones **12** (Cofre/Cápsula), **14** (autorización de Realtime) y **15** (imagen/audio del chat).
 
 ## 4. Cómo correr los tests
 
@@ -155,40 +147,7 @@ El archivo se sube en un request y se descarga en otro — potencialmente otra i
 
 Segunda misión: salas de chat efímero (2-6 personas, ver `frontend/src/components/secretChat/README.md`). Los mensajes normales viajan por Supabase Realtime Broadcast y nunca tocan este backend ("Zero-Log"). Este backend solo administra el **Cofre**: compartir un dato sensible con un límite real de copias, porque varias personas pueden intentar copiarlo casi al mismo tiempo y eso necesita una garantía atómica. **Nunca ve el contenido en texto plano** — recibe `ciphertext`/`nonce` ya cifrados con una clave que vive solo en el fragmento de la URL de la sala; solo cuenta copias y expiración.
 
-```sql
-create table secret_vault_items (
-  id uuid primary key,
-  room_id text,
-  ciphertext text,                 -- NULL en items de imagen/audio
-  nonce text not null,
-  max_copies integer not null,
-  remaining_copies integer not null,
-  expires_at timestamptz not null,
-  created_at timestamptz not null default now(),
-  content_type text not null default 'text' check (content_type in ('text', 'image', 'audio')),
-  storage_path text,
-  mime_type text
-);
-alter table secret_vault_items enable row level security;
--- Sin políticas públicas, mismo motivo que shared_content.
-```
-Bucket privado nuevo: `secret-vault-media` (solo para items de imagen/audio).
-
-```sql
-create or replace function decrement_vault_copies(item_id uuid)
-returns setof secret_vault_items
-language sql
-as $$
-  update secret_vault_items
-  set remaining_copies = remaining_copies - 1
-  where id = item_id and remaining_copies > 0 and expires_at > now()
-  returning *;
-$$;
--- No SECURITY DEFINER - se le quita ademas el permiso de ejecucion a los
--- roles publicos explicitamente, como defensa en profundidad sobre RLS.
-revoke all on function decrement_vault_copies from public, anon, authenticated;
-```
-Mismas credenciales que `sharedContent` — no hace falta un proyecto nuevo.
+Tabla `secret_vault_items` + función `decrement_vault_copies`: SQL completo en [`supabase_setup.sql`](supabase_setup.sql) (bloque 2), mismas credenciales que `sharedContent` — no hace falta un proyecto nuevo. Bucket privado nuevo: `secret-vault-media` (solo para items de imagen/audio).
 
 **Por qué una función SQL y no un `.update()` normal**: el query builder de `supabase-py` solo acepta valores literales, no puede expresar `remaining_copies - 1` como relativo al valor anterior — leerlo y restarlo en Python abriría una carrera entre dos requests casi simultáneas. La función resuelve todo ("restar 1, si sigue > 0 y no expiró") en una sola sentencia con lock de fila en Postgres, mismo principio que `mark_viewed_if_unseen` en `sharedContent`.
 
@@ -206,24 +165,8 @@ El chat usa Supabase Realtime con la **anon key**, pública por diseño — sin 
 
 **Dos tokens**: *access token* (5 min default, `{role: authenticated, room_id, exp}` — el único que Supabase entiende, lo exigen las políticas de abajo) y *session token* (45 min default, sin `role: authenticated` a propósito — nunca sirve como credencial aunque se filtre, solo permite refrescar el access token sin repetir Turnstile hasta que el propio session token vence).
 
-```sql
-create table secret_chat_rooms (      -- solo salas con contraseña generan fila
-  id uuid primary key,
-  password_hash text not null,
-  expires_at timestamptz not null,
-  created_at timestamptz not null default now()
-);
-alter table secret_chat_rooms enable row level security;
+Tabla `secret_chat_rooms` + las policies de RLS sobre `realtime.messages`: SQL completo en [`supabase_setup.sql`](supabase_setup.sql) (bloque 3).
 
-alter table realtime.messages enable row level security;
-
-create policy "secret_chat_topic_select" on realtime.messages for select to authenticated using (
-  extension in ('broadcast', 'presence') and (select realtime.topic()) = 'room:' || (auth.jwt() ->> 'room_id')
-);
-create policy "secret_chat_topic_insert" on realtime.messages for insert to authenticated with check (
-  extension in ('broadcast', 'presence') and (select realtime.topic()) = 'room:' || (auth.jwt() ->> 'room_id')
-);
-```
 **Paso manual además del SQL** (Project Settings → Realtime): desactivar "Allow public access" — sin esto, RLS queda bypasseado. Reversible al instante; conviene desplegar el código primero, verificar a mano, y recién ahí desactivar el toggle. `SUPABASE_JWT_SECRET` sale de Project Settings → API → JWT Settings (**distinto** de `SUPABASE_KEY`).
 
 **Endpoints**: `POST /api/secret-chat/rooms` (crea sala con contraseña) · `POST /api/secret-chat/realtime-token` (unirse a cualquier sala, o crear una sin contraseña) · `POST /api/secret-chat/realtime-token/refresh` (renueva el access token, sin Turnstile).
@@ -238,20 +181,7 @@ create policy "secret_chat_topic_insert" on realtime.messages for insert to auth
 
 Compartir imagen/audio dentro de la conversación normal (no el Cofre), con la misma autodestrucción por TTL que el texto. Rompe a propósito y de forma acotada el diseño "Zero-Log": Broadcast tiene un techo real de ~256KB, insuficiente para foto/audio de calidad razonable, así que esos bytes (cifrados de punta a punta, este backend nunca ve el contenido real) pasan por aquí con el mismo techo (~10MB) que `sharedContent`.
 
-```sql
-create table secret_chat_media_items (
-  id uuid primary key,
-  room_id text not null,
-  storage_path text not null,
-  nonce text not null,
-  mime_type text not null,
-  byte_size integer not null,
-  expires_at timestamptz not null,
-  created_at timestamptz not null default now()
-);
-alter table secret_chat_media_items enable row level security;
-```
-Bucket privado nuevo: `secret-chat-media`.
+Tabla `secret_chat_media_items`: SQL completo en [`supabase_setup.sql`](supabase_setup.sql) (bloque 4). Bucket privado nuevo: `secret-chat-media`.
 
 **Endpoints**: `POST /api/secret-chat-media` (multipart, sube y devuelve `{id, expires_at}`; el `id` viaja por Broadcast, los bytes nunca) · `GET /api/secret-chat-media/{id}` (purga on-access, **sin límite de copias** — todos los ocupantes conectados necesitan poder leerlo mientras el mensaje esté vivo).
 

@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useLocale } from '../../i18n/useLocale'
-import LanguageToggle from '../ui/LanguageToggle.vue'
-import ThemeToggle from '../ui/ThemeToggle.vue'
+import HeaderMenu from '../ui/HeaderMenu.vue'
 
 const props = defineProps<{
   ocupantes: number
@@ -26,6 +25,15 @@ const subtitulo = computed(() => {
     .replace('{ocupantes}', String(props.ocupantes))
     .replace('{capacidad}', String(props.capacidadMaxima))
 })
+
+// Mismo patron que App.vue: sin ruteo del lado del cliente, "salir" es
+// navegar de verdad de vuelta a "/". La topbar global (donde vivia este
+// menu antes) se oculta del todo dentro de una sala, asi que ahora vive
+// directamente aca - siempre relevante en este componente (ChatHeader solo
+// se renderiza estando en una sala).
+function salirDeLaSala() {
+  window.location.href = '/'
+}
 </script>
 
 <template>
@@ -66,15 +74,7 @@ const subtitulo = computed(() => {
          - solo confirma que el enlace de esta sala sigue activo. -->
     <span class="chip-enlace">{{ t.chatHeaderLinkBadge }}</span>
 
-    <!-- Antes flotaban sueltos sobre la pagina (App.vue) - ahora que
-         App.vue muestra su propia topbar (con LanguageToggle/ThemeToggle)
-         incluso dentro de una sala en tablet/desktop, estos quedarian
-         duplicados ahi - solo se muestran aca en mobile, donde la topbar
-         global se oculta dentro de una sala (ver App.vue). -->
-    <div class="controles-header">
-      <LanguageToggle />
-      <ThemeToggle />
-    </div>
+    <HeaderMenu :mostrar-salir="true" @salir="salirDeLaSala" />
   </header>
 </template>
 
@@ -122,26 +122,6 @@ const subtitulo = computed(() => {
   color: var(--text-muted);
   font-size: 0.75rem;
   white-space: nowrap;
-}
-
-/* Redundante con la topbar global de App.vue en tablet/desktop (esta ya
-   muestra LanguageToggle/ThemeToggle ahi incluso dentro de una sala) - solo
-   se muestra aca donde esa topbar se oculta, ver App.vue ≤480px. */
-.controles-header {
-  display: none;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-@media (max-width: 480px) {
-  .controles-header {
-    display: flex;
-  }
-
-  .chip-enlace {
-    display: none;
-  }
 }
 
 .titulo {

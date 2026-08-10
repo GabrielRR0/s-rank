@@ -6,7 +6,7 @@ import { createVaultItem } from '../../services/secretChat/vault.service'
 import { validateVaultSecretInput } from '../../utils/validators/validateChatInput'
 import BaseAlert from '../ui/BaseAlert.vue'
 import BaseButton from '../ui/BaseButton.vue'
-import Tooltip from '../ui/Tooltip.vue'
+import ResponsiveModal from '../ui/ResponsiveModal.vue'
 
 const props = defineProps<{ clave: CryptoKey; roomId: string }>()
 const emit = defineEmits<{ compartido: [vaultId: string, maxCopias: number, expiraEn: string] }>()
@@ -59,42 +59,65 @@ async function compartir() {
 
 <template>
   <div class="vault-composer">
-    <Tooltip v-if="!abierto" :texto="t.vaultInfoTooltip">
-      <button type="button" class="abrir-boton" @click="abierto = true">
-        {{ t.vaultComposerHeading }}
-      </button>
-    </Tooltip>
+    <button v-if="!abierto" type="button" class="abrir-boton" @click="abierto = true">
+      <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path
+          fill-rule="evenodd"
+          d="M10 1a4 4 0 00-4 4v2H5a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2V9a2 2 0 00-2-2h-1V5a4 4 0 00-4-4zm2 6V5a2 2 0 10-4 0v2h4zm-2 4a1 1 0 011 1v2a1 1 0 11-2 0v-2a1 1 0 011-1z"
+          clip-rule="evenodd"
+        />
+      </svg>
+      {{ t.vaultComposerHeading }}
+    </button>
 
-    <form v-else class="formulario" @submit.prevent="compartir">
-      <textarea v-model="secreto" class="campo-texto" rows="2" :placeholder="t.vaultSecretPlaceholder" />
+    <!-- Antes era un tooltip solo-hover sobre el boton de arriba - en mobile
+         (sin hover) esa explicacion no se podia ver nunca. Ahora vive como
+         texto normal adentro del modal/bottom sheet, siempre visible antes
+         de escribir el dato (ver .info mas abajo). -->
+    <ResponsiveModal v-if="abierto" :titulo="t.vaultComposerHeading" :cerrar-aria="t.chatSidebarCloseAria" @cerrar="cancelar">
+      <template #icono>
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path
+            fill-rule="evenodd"
+            d="M10 1a4 4 0 00-4 4v2H5a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2V9a2 2 0 00-2-2h-1V5a4 4 0 00-4-4zm2 6V5a2 2 0 10-4 0v2h4zm-2 4a1 1 0 011 1v2a1 1 0 11-2 0v-2a1 1 0 011-1z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </template>
 
-      <div class="fila-copias">
-        <span class="etiqueta">{{ t.vaultMaxCopiesLabel }}</span>
-        <div class="opciones">
-          <button
-            v-for="opcion in COPIAS_OPCIONES"
-            :key="opcion"
-            type="button"
-            class="opcion"
-            :class="{ activo: maxCopias === opcion }"
-            @click="maxCopias = opcion"
-          >
-            {{ opcion }}
+      <form class="formulario" @submit.prevent="compartir">
+        <p class="info">{{ t.vaultInfoTooltip }}</p>
+
+        <textarea v-model="secreto" class="campo-texto" rows="3" :placeholder="t.vaultSecretPlaceholder" />
+
+        <div class="fila-copias">
+          <span class="etiqueta">{{ t.vaultMaxCopiesLabel }}</span>
+          <div class="opciones">
+            <button
+              v-for="opcion in COPIAS_OPCIONES"
+              :key="opcion"
+              type="button"
+              class="opcion"
+              :class="{ activo: maxCopias === opcion }"
+              @click="maxCopias = opcion"
+            >
+              {{ opcion }}
+            </button>
+          </div>
+        </div>
+
+        <BaseAlert :mensajes="errores" />
+
+        <div class="acciones">
+          <BaseButton size="sm" :disabled="compartiendo" @click="compartir">
+            {{ compartiendo ? t.vaultSharingButton : t.vaultShareButton }}
+          </BaseButton>
+          <button type="button" class="cancelar-boton" :disabled="compartiendo" @click="cancelar">
+            {{ t.vaultComposerCancel }}
           </button>
         </div>
-      </div>
-
-      <BaseAlert :mensajes="errores" />
-
-      <div class="acciones">
-        <BaseButton :disabled="compartiendo" @click="compartir">
-          {{ compartiendo ? t.vaultSharingButton : t.vaultShareButton }}
-        </BaseButton>
-        <button type="button" class="cancelar-boton" :disabled="compartiendo" @click="cancelar">
-          {{ t.vaultComposerCancel }}
-        </button>
-      </div>
-    </form>
+      </form>
+    </ResponsiveModal>
   </div>
 </template>
 
@@ -106,6 +129,9 @@ async function compartir() {
 
 .abrir-boton {
   align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 0.4375rem;
   border: 1px solid var(--border);
   background: none;
   border-radius: 999px;
@@ -117,9 +143,21 @@ async function compartir() {
   transition: border-color var(--duration-fast) var(--ease-out);
 }
 
+.abrir-boton svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  flex-shrink: 0;
+}
+
 .abrir-boton:hover {
   border-color: var(--accent);
   color: var(--text);
+}
+
+.info {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 .acciones {
@@ -135,7 +173,10 @@ async function compartir() {
   font: inherit;
   font-size: 0.8125rem;
   cursor: pointer;
-  padding: 0;
+  /* Mismo padding vertical que BaseButton size="sm" (su par en .acciones) -
+     sin esto, un boton con caja y otro puro texto quedaban con distinta
+     altura/linea de base aunque el tamaño de fuente coincidiera. */
+  padding: 0.5rem 0;
 }
 
 .cancelar-boton:hover {

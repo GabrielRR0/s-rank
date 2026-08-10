@@ -164,6 +164,18 @@ def test_content_type_invalido_en_media_devuelve_422():
     print("[test] OK: status 422 como se esperaba.")
 
 
+def test_content_type_que_no_coincide_con_mime_type_devuelve_422():
+    # Alguien (o un cliente modificado) declara content_type="image" pero
+    # manda un mime_type de audio - no alcanza con que mime_type sea ALGUN
+    # tipo permitido, tiene que corresponder al content_type declarado (ver
+    # secret_vault_service.create_vault_media_item).
+    print("\n[test] POST /api/secret-vault/media con content_type='image' pero mime_type='audio/mp3'...")
+    response = _create_vault_media_item(content_type="image", mime_type="audio/mp3")
+
+    assert response.status_code == 422
+    print("[test] OK: status 422 como se esperaba.")
+
+
 def test_archivo_de_media_demasiado_grande_devuelve_422(monkeypatch):
     print("\n[test] POST /api/secret-vault/media con archivo mas grande que el limite...")
     monkeypatch.setattr(settings, "vault_media_max_bytes", 10)

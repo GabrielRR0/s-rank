@@ -5,24 +5,6 @@ import { copyVaultItem, fetchVaultItem, VaultError } from '../../services/secret
 
 export type EstadoVaultItem = 'cargando' | 'disponible' | 'agotado'
 
-// navigator.clipboard.writeText() puede quedar colgado (no resolver NI
-// rechazar) si la pestaña perdio el foco o el permiso quedo en un estado
-// raro - sin este limite, copiar() se quedaria esperando para siempre. 2s
-// alcanza de sobra para una escritura al portapapeles normal.
-const TIMEOUT_PORTAPAPELES_MS = 2000
-
-async function copiarAlPortapapeles(texto: string): Promise<boolean> {
-  try {
-    await Promise.race([
-      navigator.clipboard.writeText(texto),
-      new Promise((_resolve, reject) => setTimeout(() => reject(new Error('timeout')), TIMEOUT_PORTAPAPELES_MS)),
-    ])
-    return true
-  } catch {
-    return false
-  }
-}
-
 // Content-only: la fuente de verdad de "cuantas copias quedan" para TODOS
 // los participantes es el array `vaults` de useSecretChatRoom (actualizado
 // via broadcast) - este composable solo trae/descifra el contenido una vez
@@ -39,8 +21,8 @@ export function useVaultItem(vaultId: string, clave: CryptoKey) {
   // Audio API, sin pasar por un <audio src> nativo (ver secretChat/README.md).
   const valorDescifradoDatos = ref<ArrayBuffer | null>(null)
   const revelado = ref(false)
-  const copiando = ref(false)
-  const errorCopia = ref('')
+  const revelando = ref(false)
+  const errorRevelar = ref('')
 
   async function cargar() {
     try {
@@ -50,9 +32,9 @@ export function useVaultItem(vaultId: string, clave: CryptoKey) {
       if (item.contentType === 'text') {
         valorDescifrado.value = await descifrarTexto(clave, { ciphertext: item.ciphertext!, nonce: item.nonce })
       } else {
-        // Ver el item no esta limitado (solo copiarlo lo esta, igual que el
-        // texto) - se descifra ya aca, no recien al "Ver"/"Reproducir", que
-        // es cuando de verdad se gasta una copia (ver copiar() mas abajo).
+        // Ver el item no esta limitado (solo revelarlo lo esta, igual que el
+        // texto) - se descifra ya aca, no recien al "Mostrar"/"Reproducir",
+        // que es cuando de verdad se gasta una copia (ver revelar() abajo).
         const datos = await descifrarBinario(clave, {
           ciphertext: base64UrlABytes(item.ciphertext!),
           nonce: item.nonce,
@@ -71,46 +53,30 @@ export function useVaultItem(vaultId: string, clave: CryptoKey) {
 
   cargar()
 
-  function alternarRevelado() {
-    revelado.value = !revelado.value
-  }
-
-  async function copiar(): Promise<number | null> {
-    errorCopia.value = ''
-    copiando.value = true
+  // Unica accion posible: mostrar el contenido SIEMPRE gasta una copia, para
+  // texto igual que para imagen/audio - no hay portapapeles ni un toggle
+  // gratuito de mostrar/ocultar, ver el valor de la capsula es en si mismo
+  // el consumo (ver VaultCard.vue).
+  async function revelar(): Promise<number | null> {
+    errorRevelar.value = ''
+    revelando.value = true
     try {
       // El consumo de la copia es lo que importa para el contador
       // compartido de la sala (ver useSecretChatRoom.notificarCopiaVault) -
-      // ya paso del lado del servidor y es irreversible, asi que NO puede
-      // quedar condicionado a que el portapapeles tambien funcione.
+      // ya paso del lado del servidor y es irreversible.
       const item = await copyVaultItem(vaultId)
       if (item.remainingCopies <= 0) estado.value = 'agotado'
-
-      if (contentType.value === 'text') {
-        const copiadoOk = await copiarAlPortapapeles(valorDescifrado.value)
-        if (!copiadoOk) {
-          // La copia ya se gasto igual - mostrar el valor para que se pueda
-          // copiar a mano es mejor que dejar a la persona sin nada.
-          revelado.value = true
-          errorCopia.value = t.value.errorVaultClipboardFailed
-        }
-      } else {
-        // "Copiar" una imagen/audio no tiene el mismo sentido que un texto -
-        // el boton (relabeleado "Ver"/"Reproducir" en VaultCard.vue) revela
-        // el contenido ya descifrado en cargar(), sin tocar el portapapeles.
-        revelado.value = true
-      }
-
+      revelado.value = true
       return item.remainingCopies
     } catch (error) {
       if (error instanceof VaultError && error.status === 410) {
         estado.value = 'agotado'
       } else {
-        errorCopia.value = t.value.errorVaultCopyFailed
+        errorRevelar.value = t.value.errorVaultRevealFailed
       }
       return null
     } finally {
-      copiando.value = false
+      revelando.value = false
     }
   }
 
@@ -126,9 +92,8 @@ export function useVaultItem(vaultId: string, clave: CryptoKey) {
     valorDescifradoUrl,
     valorDescifradoDatos,
     revelado,
-    copiando,
-    errorCopia,
-    alternarRevelado,
-    copiar,
+    revelando,
+    errorRevelar,
+    revelar,
   }
 }

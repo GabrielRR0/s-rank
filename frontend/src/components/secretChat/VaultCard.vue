@@ -9,23 +9,19 @@ const props = defineProps<{ vault: VaultPointer; clave: CryptoKey }>()
 const emit = defineEmits<{ copiado: [vaultId: string, copiasRestantes: number] }>()
 
 const { t } = useLocale()
-const {
-  estado,
-  contentType,
-  valorDescifrado,
-  valorDescifradoUrl,
-  valorDescifradoDatos,
-  revelado,
-  copiando,
-  errorCopia,
-  alternarRevelado,
-  copiar,
-} = useVaultItem(props.vault.vaultId, props.clave)
+const { estado, contentType, valorDescifrado, valorDescifradoUrl, valorDescifradoDatos, revelado, revelando, errorRevelar, revelar } =
+  useVaultItem(props.vault.vaultId, props.clave)
 
-async function manejarCopiar() {
-  const restantes = await copiar()
+async function manejarMostrar() {
+  const restantes = await revelar()
   if (restantes !== null) emit('copiado', props.vault.vaultId, restantes)
 }
+
+const ETIQUETA_BOTON = {
+  text: () => t.value.vaultRevealButton,
+  image: () => t.value.vaultViewButton,
+  audio: () => t.value.vaultPlayButton,
+} as const
 </script>
 
 <template>
@@ -44,44 +40,35 @@ async function manejarCopiar() {
       <span class="contador">{{ vault.copiasRestantes }}/{{ vault.maxCopias }}</span>
     </div>
 
-    <template v-if="estado === 'disponible' && contentType === 'text'">
-      <p class="valor" :class="{ enmascarado: !revelado }">{{ revelado ? valorDescifrado : '••••••••••' }}</p>
-      <div class="acciones">
-        <button type="button" class="link-boton" @click="alternarRevelado">
-          {{ revelado ? t.vaultHideButton : t.vaultRevealButton }}
-        </button>
-        <BaseButton variant="secondary" :disabled="copiando" @click="manejarCopiar">
-          {{ copiando ? t.vaultCopyingButton : t.vaultCopyButton }}
-        </BaseButton>
-      </div>
-      <p v-if="errorCopia" class="error-copia">{{ errorCopia }}</p>
-    </template>
-
-    <template v-else-if="estado === 'disponible' && (contentType === 'image' || contentType === 'audio')">
-      <!-- A diferencia del texto, no hay un toggle "Mostrar/Ocultar" libre -
-           el unico boton ya es la accion que gasta la copia (ver
-           useVaultItem.copiar()), asi que revelar y consumir pasan juntos.
-           Rama explicita por tipo (nunca un v-else generico) a proposito:
-           un content_type inesperado/faltante debe caer en el mensaje de
-           "no disponible" de abajo, no adivinar un tipo al azar. -->
+    <!-- Una unica accion posible, igual para texto/imagen/audio: mostrar el
+         contenido gasta una copia (ver useVaultItem.revelar()) - no hay
+         portapapeles ni un toggle gratuito de mostrar/ocultar, revelar y
+         consumir pasan siempre juntos. El guard de contentType en la
+         condicion de afuera es a proposito (nunca un v-else generico): un
+         content_type inesperado/faltante debe caer en el mensaje de "no
+         disponible" de abajo, no adivinar un tipo al azar. -->
+    <template v-if="estado === 'disponible' && (contentType === 'text' || contentType === 'image' || contentType === 'audio')">
       <template v-if="revelado">
+        <p v-if="contentType === 'text'" class="valor">{{ valorDescifrado }}</p>
         <img
-          v-if="contentType === 'image'"
+          v-else-if="contentType === 'image'"
           class="valor-imagen"
           :src="valorDescifradoUrl ?? ''"
           alt=""
           draggable="false"
           @contextmenu.prevent
         />
-        <AudioPlayer v-else-if="valorDescifradoDatos" :datos="valorDescifradoDatos" />
+        <AudioPlayer v-else-if="contentType === 'audio' && valorDescifradoDatos" :datos="valorDescifradoDatos" />
       </template>
-      <p v-else class="valor enmascarado">••••••••••</p>
-      <div v-if="!revelado" class="acciones">
-        <BaseButton variant="secondary" :disabled="copiando" @click="manejarCopiar">
-          {{ copiando ? t.vaultCopyingButton : contentType === 'image' ? t.vaultViewButton : t.vaultPlayButton }}
-        </BaseButton>
-      </div>
-      <p v-if="errorCopia" class="error-copia">{{ errorCopia }}</p>
+      <template v-else>
+        <p class="valor enmascarado">••••••••••</p>
+        <div class="acciones">
+          <BaseButton variant="secondary" size="sm" :disabled="revelando" @click="manejarMostrar">
+            {{ revelando ? t.vaultRevealingButton : ETIQUETA_BOTON[contentType]() }}
+          </BaseButton>
+        </div>
+      </template>
+      <p v-if="errorRevelar" class="error-copia">{{ errorRevelar }}</p>
     </template>
 
     <p v-else-if="estado === 'cargando'" class="estado-texto">{{ t.viewLoading }}</p>
@@ -162,16 +149,6 @@ async function manejarCopiar() {
   display: flex;
   align-items: center;
   gap: 1rem;
-}
-
-.link-boton {
-  border: none;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  font-size: 0.8125rem;
-  cursor: pointer;
-  padding: 0;
 }
 
 .estado-texto {

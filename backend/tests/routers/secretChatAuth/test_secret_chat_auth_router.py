@@ -116,6 +116,24 @@ def test_realtime_token_con_turnstile_prendido_sin_token_devuelve_422(monkeypatc
     print("[test] OK: status 422 como se esperaba.")
 
 
+def test_password_con_espacios_extra_no_autentica():
+    # bcrypt.checkpw compara el valor literal - un usuario que escribe la
+    # contraseña correcta pero con un espacio de mas al final (tipeo comun
+    # en mobile, autocompletado, copy-paste con salto de linea incluido) NO
+    # deberia entrar. Documenta que no hay ningun .strip()/normalizacion
+    # oculta en el camino contraseña -> hash -> verificacion.
+    print("\n[test] POST /api/secret-chat/realtime-token con la contraseña correcta + un espacio de mas...")
+    room_id = _room_id()
+    client.post("/api/secret-chat/rooms", json={"room_id": room_id, "password": "correcta123"})
+
+    response = client.post(
+        "/api/secret-chat/realtime-token", json={"room_id": room_id, "password": "correcta123 "}
+    )
+
+    assert response.status_code == 401
+    print("[test] OK: status 401 - la contraseña se compara literal, sin recortar espacios.")
+
+
 def test_bot_guard_bloquea_tras_fallos_repetidos_de_turnstile(monkeypatch):
     print("\n[test] varios fallos de Turnstile seguidos disparan el bloqueo de bot_guard...")
     monkeypatch.setattr(settings, "turnstile_enabled", True)

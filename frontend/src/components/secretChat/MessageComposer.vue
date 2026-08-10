@@ -176,7 +176,7 @@ function manejarCompartido(vaultId: string, maxCopias: number, expiraEn: string)
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
-  border: none;
+  border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
   display: flex;
@@ -185,7 +185,8 @@ function manejarCompartido(vaultId: string, maxCopias: number, expiraEn: string)
   cursor: pointer;
   transition:
     color var(--duration-fast) var(--ease-out),
-    background-color var(--duration-fast) var(--ease-out);
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .boton-icono svg {
@@ -196,11 +197,13 @@ function manejarCompartido(vaultId: string, maxCopias: number, expiraEn: string)
 .boton-icono:hover {
   color: var(--accent);
   background: var(--bg);
+  border-color: var(--accent);
 }
 
 .boton-icono.grabando {
   color: var(--alert-text);
   background: color-mix(in srgb, var(--alert-text) 14%, transparent);
+  border-color: var(--alert-text);
 }
 
 .grabando-texto {

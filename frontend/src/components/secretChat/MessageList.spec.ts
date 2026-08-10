@@ -15,10 +15,9 @@ vi.mock('../../composables/secretChat/useVaultItem', () => ({
     valorDescifradoUrl: ref(null),
     valorDescifradoDatos: ref(null),
     revelado: ref(false),
-    copiando: ref(false),
-    errorCopia: ref(''),
-    alternarRevelado: vi.fn(),
-    copiar: vi.fn(),
+    revelando: ref(false),
+    errorRevelar: ref(''),
+    revelar: vi.fn(),
   })),
 }))
 
@@ -65,11 +64,13 @@ describe('MessageList - el Cofre se intercala dentro del chat, no en un panel ap
       valorDescifrado: ref('secreto'),
       valorDescifradoUrl: ref(null),
       valorDescifradoDatos: ref(null),
-      revelado: ref(true),
-      copiando: ref(false),
-      errorCopia: ref(''),
-      alternarRevelado: vi.fn(),
-      copiar: vi.fn().mockResolvedValue(2),
+      // false: el boton de accion (que dispara revelar()) solo se renderiza
+      // antes de revelar - una vez revelado ya no hay nada que gaste otra
+      // copia, ver VaultCard.vue.
+      revelado: ref(false),
+      revelando: ref(false),
+      errorRevelar: ref(''),
+      revelar: vi.fn().mockResolvedValue(2),
     } as unknown as ReturnType<typeof useVaultItem>)
 
     const wrapper = mount(MessageList, {

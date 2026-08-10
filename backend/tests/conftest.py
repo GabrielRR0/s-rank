@@ -1,5 +1,6 @@
 import base64
 import os
+import threading
 from datetime import datetime, timezone
 
 import pytest
@@ -96,6 +97,18 @@ class FakeVaultStorageClient:
     def __init__(self):
         self.rows: dict[str, dict] = {}
         self.files: dict[str, bytes] = {}
+        # Real Postgres da esta atomicidad gratis via un UPDATE...WHERE de
+        # una sola fila (ver decrement_vault_copies, backend/README.md
+        # seccion 12) - un dict de Python no. Sin este lock, un test que
+        # dispara copies en paralelo con threads reales (ver
+        # tests/routers/secretVault/test_concurrency.py) podria colar mas
+        # de un "exito" para el mismo item con remaining_copies=1: el GIL
+        # puede cambiar de thread entre el chequeo de arriba y el -= 1 de
+        # abajo (mas todavia con multiples statements de por medio). El
+        # lock hace que este fake replique la MISMA garantia atomica que ya
+        # se documenta como real en Postgres, en vez de solo confiar en que
+        # el GIL "probablemente" no cambie de thread en el momento justo.
+        self._lock = threading.Lock()
 
     def insert_vault_item(self, record: dict) -> dict:
         self.rows[record["id"]] = dict(record)
@@ -106,16 +119,17 @@ class FakeVaultStorageClient:
         return dict(row) if row is not None else None
 
     def decrement_copies_if_available(self, item_id: str) -> dict | None:
-        row = self.rows.get(item_id)
-        if row is None or row.get("remaining_copies", 0) <= 0:
-            return None
-        expires_at = row["expires_at"]
-        if isinstance(expires_at, str):
-            expires_at = datetime.fromisoformat(expires_at)
-        if datetime.now(timezone.utc) >= expires_at:
-            return None
-        row["remaining_copies"] -= 1
-        return dict(row)
+        with self._lock:
+            row = self.rows.get(item_id)
+            if row is None or row.get("remaining_copies", 0) <= 0:
+                return None
+            expires_at = row["expires_at"]
+            if isinstance(expires_at, str):
+                expires_at = datetime.fromisoformat(expires_at)
+            if datetime.now(timezone.utc) >= expires_at:
+                return None
+            row["remaining_copies"] -= 1
+            return dict(row)
 
     def delete_vault_item(self, item_id: str) -> None:
         self.rows.pop(item_id, None)
@@ -152,12 +166,17 @@ class FakeChatRoomStorageClient:
 
     def __init__(self):
         self.rows: dict[str, dict] = {}
+        # Mismo motivo que el lock de FakeVaultStorageClient: replicar bajo
+        # threads reales la atomicidad que el unique constraint de Postgres
+        # da gratis (ver tests/routers/secretVault/test_concurrency.py).
+        self._lock = threading.Lock()
 
     def insert_room(self, record: dict) -> dict:
-        if record["id"] in self.rows:
-            raise APIError({"message": "duplicate key value violates unique constraint", "code": "23505"})
-        self.rows[record["id"]] = dict(record)
-        return dict(record)
+        with self._lock:
+            if record["id"] in self.rows:
+                raise APIError({"message": "duplicate key value violates unique constraint", "code": "23505"})
+            self.rows[record["id"]] = dict(record)
+            return dict(record)
 
     def get_room(self, room_id: str) -> dict | None:
         row = self.rows.get(room_id)

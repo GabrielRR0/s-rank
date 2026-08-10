@@ -28,10 +28,9 @@ function mockVaultItem(overrides: Partial<ReturnType<typeof useVaultItem>>) {
     valorDescifradoUrl: ref(null),
     valorDescifradoDatos: ref(null),
     revelado: ref(false),
-    copiando: ref(false),
-    errorCopia: ref(''),
-    alternarRevelado: vi.fn(),
-    copiar: vi.fn(),
+    revelando: ref(false),
+    errorRevelar: ref(''),
+    revelar: vi.fn(),
     ...overrides,
   } as unknown as ReturnType<typeof useVaultItem>)
 }

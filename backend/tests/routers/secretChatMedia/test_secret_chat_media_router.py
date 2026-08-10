@@ -84,3 +84,42 @@ def test_get_multiples_veces_no_consume_nada():
     assert primera.status_code == 200
     assert segunda.status_code == 200
     print("[test] OK: a diferencia del Cofre, leerlo varias veces no lo agota.")
+
+
+def test_nonce_vacio_devuelve_422():
+    print("\n[test] POST /api/secret-chat-media con nonce vacio...")
+    response = _create_media_item(nonce="")
+
+    assert response.status_code == 422
+    print("[test] OK: status 422 como se esperaba.")
+
+
+def test_room_id_con_caracteres_de_path_traversal_no_rompe_el_servidor():
+    # A diferencia de secretChatAuth (que valida room_id como UUID antes de
+    # usarlo para nada), este endpoint recibe room_id como string libre de
+    # multipart y lo concatena directo en storage_path (ver
+    # secret_chat_media_service.create_media_item: f"{room_id}/{item_id}").
+    # No hay forma de "escapar" fuera del bucket con esto (Supabase Storage
+    # trata "/" como separador logico de key, no como filesystem real), pero
+    # documenta que este campo puntual no tiene NINGUNA validacion de
+    # formato server-side, a diferencia de room_id en /api/secret-chat/*.
+    print("\n[test] POST /api/secret-chat-media con room_id conteniendo '../' ...")
+    response = _create_media_item(room_id="../../../etc/passwd")
+
+    assert response.status_code == 201
+    print("[test] Confirmado: se acepta tal cual (sin validar formato) - no rompe el server, pero tampoco lo valida.")
+
+
+def test_mime_svg_es_aceptado_hoy():
+    # Hallazgo de seguridad a señalar, no un bug de test: ALLOWED_CHAT_MEDIA_MIME_PREFIXES
+    # = ("image/", "audio/") es un chequeo de PREFIJO nomas - "image/svg+xml"
+    # matchea "image/" igual que "image/png", aunque un SVG puede llevar
+    # <script> embebido (a diferencia de sharedContent, que sí tiene una
+    # blocklist explicita para tipos peligrosos, ver
+    # services/sharedContent/security/blocked_file_types.py). Este test
+    # documenta el comportamiento ACTUAL (lo acepta), no lo aprueba.
+    print("\n[test] POST /api/secret-chat-media con mime_type='image/svg+xml' (podria llevar <script>)...")
+    response = _create_media_item(mime_type="image/svg+xml")
+
+    assert response.status_code == 201
+    print("[test] Confirmado: se acepta hoy - ver nota de seguridad en el docstring de este test.")
