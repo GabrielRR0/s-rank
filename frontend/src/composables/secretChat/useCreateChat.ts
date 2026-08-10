@@ -26,6 +26,12 @@ export function useCreateChat() {
   const errores = ref<string[]>([])
   const creando = ref(false)
   const resultado = ref<CreateChatResult | null>(null)
+  // Separado de `errores` (validacion local, sin red) a proposito - mismo
+  // criterio que errorCreacion en useUpload.ts: el consumidor necesita
+  // distinguir "fallo la validacion" de "el intento de red fallo" para
+  // saber si hace falta pedirle un token nuevo a Turnstile (el token ya
+  // gastado en un intento de red fallido no sirve para reintentar).
+  const errorCreacion = ref('')
 
   function validar(): boolean {
     errores.value = validateNicknameInput(apodo.value, t.value.errorNicknameRequired, t.value.errorNicknameTooLong)
@@ -43,6 +49,7 @@ export function useCreateChat() {
   }
 
   async function crear() {
+    errorCreacion.value = ''
     if (!validar()) return
     creando.value = true
     try {
@@ -68,7 +75,7 @@ export function useCreateChat() {
 
       resultado.value = { roomId, enlace }
     } catch (error) {
-      errores.value = [error instanceof RealtimeAuthError ? error.message : t.value.errorRoomVerificationFailed]
+      errorCreacion.value = error instanceof RealtimeAuthError ? error.message : t.value.errorRoomVerificationFailed
     } finally {
       creando.value = false
     }
@@ -82,6 +89,7 @@ export function useCreateChat() {
     password.value = ''
     turnstileToken.value = null
     errores.value = []
+    errorCreacion.value = ''
     resultado.value = null
   }
 
@@ -93,6 +101,7 @@ export function useCreateChat() {
     password,
     turnstileToken,
     errores,
+    errorCreacion,
     creando,
     resultado,
     crear,

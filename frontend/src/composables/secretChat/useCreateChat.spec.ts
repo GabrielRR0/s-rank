@@ -117,14 +117,19 @@ describe('useCreateChat', () => {
     expect(claveA).not.toBe(claveB)
   })
 
-  it('un error de la API (ej. rate limit, Turnstile fallido) se muestra en errores sin crashear', async () => {
+  it('un error de la API (ej. rate limit, Turnstile fallido) se muestra en errorCreacion sin crashear', async () => {
+    // Separado de `errores` (validacion local, sin red) a proposito - el
+    // consumidor (CreateChatMain.vue) necesita distinguir "fallo la
+    // validacion" de "el intento de red fallo" para saber si hace falta
+    // pedirle un token nuevo a Turnstile.
     vi.mocked(fetchInitialTokens).mockRejectedValue(new RealtimeAuthError('Verificación anti-bot fallida.', 422))
     const composable = montarCreateChat()
     composable.apodo.value = 'Ana'
 
     await composable.crear()
 
-    expect(composable.errores.value).toEqual(['Verificación anti-bot fallida.'])
+    expect(composable.errorCreacion.value).toBe('Verificación anti-bot fallida.')
+    expect(composable.errores.value).toEqual([])
     expect(composable.resultado.value).toBeNull()
   })
 

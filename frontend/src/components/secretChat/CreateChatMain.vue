@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useLocale } from '../../i18n/useLocale'
 import { TURNSTILE_ENABLED } from '../../composables/useTurnstile'
 import { CAPACIDAD_OPCIONES, TTL_OPCIONES_SEGUNDOS, useCreateChat } from '../../composables/secretChat/useCreateChat'
@@ -18,18 +19,29 @@ const {
   password,
   turnstileToken,
   errores,
+  errorCreacion,
   creando,
   resultado,
   crear,
   reiniciar,
 } = useCreateChat()
+
+const turnstileWidget = ref<InstanceType<typeof TurnstileWidget> | null>(null)
+
+// Mismo motivo que FileSharingMain.vue: errorCreacion (no `errores`, que es
+// solo validacion local) marca que hubo un intento de red real que fallo -
+// el token de Turnstile ya usado en ese intento no sirve para reintentar.
+async function manejarSubmit() {
+  await crear()
+  if (errorCreacion.value) turnstileWidget.value?.reset()
+}
 </script>
 
 <template>
   <BaseCard class="create-chat-main">
     <ChatCreateResult v-if="resultado" :resultado="resultado" @reiniciar="reiniciar" />
 
-    <form v-else class="formulario" @submit.prevent="crear">
+    <form v-else class="formulario" @submit.prevent="manejarSubmit">
       <p class="subtitulo">{{ t.chatCreateSubtitle }}</p>
 
       <label class="campo">
@@ -71,11 +83,11 @@ const {
 
       <PasswordToggle v-model:activo="protegerConPassword" v-model:password="password" />
 
-      <TurnstileWidget v-if="TURNSTILE_ENABLED" @token="turnstileToken = $event" />
+      <TurnstileWidget v-if="TURNSTILE_ENABLED" ref="turnstileWidget" @token="turnstileToken = $event" />
 
-      <BaseAlert :mensajes="errores" />
+      <BaseAlert :mensajes="errores.length ? errores : errorCreacion ? [errorCreacion] : []" />
 
-      <BaseButton :disabled="creando" @click="crear">
+      <BaseButton :disabled="creando" @click="manejarSubmit">
         {{ creando ? t.chatCreatingButton : t.chatCreateButton }}
       </BaseButton>
     </form>
@@ -83,6 +95,18 @@ const {
 </template>
 
 <style scoped>
+/* .contenido-centrado (App.vue) es flex, y BaseCard no trae ancho propio -
+   sin esto, la tarjeta se agranda para ajustarse a su contenido en vez de
+   respetar el ancho disponible. Pasa desapercibido con el formulario (nada
+   ahi es mas ancho que la tarjeta), pero se nota fuerte en ChatCreateResult
+   de abajo: un link sin cortar es mucho mas ancho que cualquier pantalla,
+   y sin este limite estiraba toda la tarjeta (y los botones con ella) fuera
+   del viewport en mobile. Mismo valor que .file-sharing-main. */
+.create-chat-main {
+  width: 100%;
+  max-width: 30rem;
+}
+
 .formulario {
   display: flex;
   flex-direction: column;
@@ -112,7 +136,9 @@ const {
   background: var(--bg-surface);
   color: var(--text-h);
   font: inherit;
-  font-size: 0.9375rem;
+  /* 1rem, no 0.9375rem: evita el zoom automatico de iOS Safari al enfocar
+     (se dispara por debajo de 16px). */
+  font-size: 1rem;
   transition: border-color var(--duration-fast) var(--ease-out);
 }
 

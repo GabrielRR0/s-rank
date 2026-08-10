@@ -139,12 +139,21 @@ function salirDeLaSala() {
 </template>
 
 <style scoped>
-/* Marco fijo de 100vh, como una app real - solo .app-content scrollea si
+/* Marco fijo de altura, como una app real - solo .app-content scrollea si
    hace falta, la pagina en si nunca lo hace. Mismo criterio que ya usa
-   ChatRoomMain.vue para la sala conectada. */
+   ChatRoomMain.vue para la sala conectada.
+   100dvh (no solo 100vh): en iOS Safari 100vh mide el viewport MAS GRANDE
+   (con la barra de direcciones/teclado ocultos) y no se recalcula cuando el
+   teclado aparece - con overflow:hidden aca, eso hacia que Safari paneara
+   el viewport visual entero para mostrar el input enfocado, y header/footer
+   del chat (fijos por flex, no position:fixed) se sentian "flotando"/
+   moviendose en vez de quedar clavados arriba/abajo. dvh si seguis al
+   viewport visual real; 100vh queda antes como fallback para navegadores
+   sin soporte de dvh (se ignora la linea invalida, no la regla entera). */
 .app-shell {
   position: relative;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
