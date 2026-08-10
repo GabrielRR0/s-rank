@@ -265,6 +265,19 @@ def _reset_rate_limiter():
 
 
 @pytest.fixture(autouse=True)
+def _turnstile_disabled_by_default(monkeypatch):
+    # Mismo motivo que _test_jwt_secret/_test_encryption_key: los tests no
+    # deben depender de lo que diga el .env real en este momento (ej. que
+    # alguien active Turnstile en desarrollo) - por defecto queda apagado
+    # para toda la coleccion, y los tests que puntualmente prueban el
+    # camino "activado" ya lo pisan con su propio monkeypatch(turnstile_enabled=True),
+    # que gana por correr despues (ver test_secret_chat_auth_router.py y
+    # tests/shared/security/test_turnstile.py).
+    monkeypatch.setattr(settings, "turnstile_enabled", False)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _test_encryption_key(monkeypatch):
     # create_share/reveal_share encriptan/desencriptan de verdad (no hay un
     # "fake" para esto, es logica pura sin dependencia externa) - los tests
