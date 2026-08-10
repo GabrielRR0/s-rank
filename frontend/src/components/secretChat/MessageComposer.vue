@@ -154,7 +154,10 @@ function manejarCompartido(vaultId: string, maxCopias: number, expiraEn: string)
   background: var(--bg-inset);
   color: var(--text-h);
   font: inherit;
-  font-size: 0.9375rem;
+  /* 1rem (16px), no 0.9375rem: por debajo de 16px, iOS Safari hace zoom
+     automatico al enfocar el input - se sentia como que "el chat se mueve"
+     cada vez que se tocaba el campo de escribir. */
+  font-size: 1rem;
   transition: border-color var(--duration-fast) var(--ease-out);
 }
 

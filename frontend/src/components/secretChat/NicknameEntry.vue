@@ -15,6 +15,7 @@ const { t } = useLocale()
 const apodo = ref('')
 const erroresApodo = ref<string[]>([])
 const { turnstileToken, password, enviando, error: errorChallenge, verificar } = useRoomAuthChallenge(props.roomId)
+const turnstileWidget = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 
 async function confirmar() {
   erroresApodo.value = validateNicknameInput(apodo.value, t.value.errorNicknameRequired, t.value.errorNicknameTooLong)
@@ -22,6 +23,10 @@ async function confirmar() {
 
   const ok = await verificar()
   if (ok) emit('confirmar', apodo.value.trim())
+  // verificar() solo llega a fallar tras un intento de red real (contraseña
+  // incorrecta, sala vencida, etc.) - el token ya se gasto en ese intento,
+  // pedimos uno nuevo para que el reintento no lo reuse.
+  else turnstileWidget.value?.reset()
 }
 </script>
 
@@ -40,7 +45,7 @@ async function confirmar() {
       autocomplete="current-password"
     />
 
-    <TurnstileWidget v-if="TURNSTILE_ENABLED" @token="turnstileToken = $event" />
+    <TurnstileWidget v-if="TURNSTILE_ENABLED" ref="turnstileWidget" @token="turnstileToken = $event" />
 
     <BaseAlert :mensajes="erroresApodo.length ? erroresApodo : errorChallenge ? [errorChallenge] : []" />
 
@@ -70,7 +75,9 @@ async function confirmar() {
   background: var(--bg-surface);
   color: var(--text-h);
   font: inherit;
-  font-size: 0.9375rem;
+  /* 1rem, no 0.9375rem: evita el zoom automatico de iOS Safari al enfocar
+     (se dispara por debajo de 16px). */
+  font-size: 1rem;
   transition: border-color var(--duration-fast) var(--ease-out);
 }
 

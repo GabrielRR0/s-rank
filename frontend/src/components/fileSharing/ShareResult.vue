@@ -46,6 +46,7 @@ async function copiarEnlace() {
 .share-result {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: 0.5rem;
   animation: fade-in-up var(--duration-base) var(--ease-out) both;
 }
@@ -59,6 +60,7 @@ async function copiarEnlace() {
   margin-top: 1rem;
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 0.75rem;
   padding: 0.875rem 1rem;
   border-radius: var(--radius-sm);

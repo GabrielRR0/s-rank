@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useLocale } from '../../i18n/useLocale'
 import { useRoomAuthChallenge } from '../../composables/secretChat/useRoomAuthChallenge'
 import BaseAlert from '../ui/BaseAlert.vue'
@@ -11,10 +12,14 @@ const emit = defineEmits<{ verificado: [] }>()
 
 const { t } = useLocale()
 const { turnstileToken, password, enviando, error, verificar } = useRoomAuthChallenge(props.roomId)
+const turnstileWidget = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 
 async function manejarSubmit() {
   const ok = await verificar()
   if (ok) emit('verificado')
+  // Mismo motivo que NicknameEntry.vue: un fallo aca ya implico un intento
+  // de red real, el token quedo gastado - hace falta uno nuevo para reintentar.
+  else turnstileWidget.value?.reset()
 }
 </script>
 
@@ -31,7 +36,7 @@ async function manejarSubmit() {
         :placeholder="t.roomPasswordPlaceholder"
         autocomplete="current-password"
       />
-      <TurnstileWidget v-if="TURNSTILE_ENABLED" @token="turnstileToken = $event" />
+      <TurnstileWidget v-if="TURNSTILE_ENABLED" ref="turnstileWidget" @token="turnstileToken = $event" />
 
       <BaseAlert :mensajes="error ? [error] : []" />
 
@@ -71,7 +76,9 @@ async function manejarSubmit() {
   background: var(--bg-surface);
   color: var(--text-h);
   font: inherit;
-  font-size: 0.9375rem;
+  /* 1rem, no 0.9375rem: evita el zoom automatico de iOS Safari al enfocar
+     (se dispara por debajo de 16px). */
+  font-size: 1rem;
   transition: border-color var(--duration-fast) var(--ease-out);
 }
 

@@ -151,7 +151,9 @@ watch(estado, (nuevo) => {
   background: var(--bg-surface);
   color: var(--text-h);
   font: inherit;
-  font-size: 0.9375rem;
+  /* 1rem, no 0.9375rem: evita el zoom automatico de iOS Safari al enfocar
+     (se dispara por debajo de 16px). */
+  font-size: 1rem;
   transition: border-color var(--duration-fast) var(--ease-out);
 }
 

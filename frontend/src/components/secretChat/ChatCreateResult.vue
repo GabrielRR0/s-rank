@@ -48,6 +48,11 @@ async function copiarEnlace() {
 .chat-create-result {
   display: flex;
   flex-direction: column;
+  /* min-width:0 en toda la cadena (aca y en .enlace-box mas abajo) - un
+     link real puede ser mucho mas ancho que la pantalla, y sin esto un
+     hijo flex nunca se encoge por debajo del contenido que tiene adentro,
+     aunque el texto en si use ellipsis. */
+  min-width: 0;
   gap: 0.5rem;
   animation: fade-in-up var(--duration-base) var(--ease-out) both;
 }
@@ -61,6 +66,7 @@ async function copiarEnlace() {
   margin-top: 1rem;
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 0.75rem;
   padding: 0.875rem 1rem;
   border-radius: var(--radius-sm);

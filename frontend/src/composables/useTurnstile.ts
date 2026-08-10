@@ -21,6 +21,7 @@ interface TurnstileGlobal {
       'error-callback'?: () => void
     },
   ) => string
+  reset: (widgetId: string) => void
 }
 
 declare global {
@@ -51,11 +52,14 @@ function cargarScript(): Promise<void> {
 export function useTurnstile() {
   const token = ref<string | null>(null)
   const error = ref(false)
+  // Id que devuelve render() - lo pide reset() para saber a que instancia
+  // del widget aplicarselo (una pagina podria, en teoria, tener mas de una).
+  let widgetId: string | null = null
 
   async function montarEn(contenedor: HTMLElement) {
     try {
       await cargarScript()
-      window.turnstile!.render(contenedor, {
+      widgetId = window.turnstile!.render(contenedor, {
         sitekey: SITE_KEY,
         callback: (nuevoToken) => {
           token.value = nuevoToken
@@ -72,5 +76,18 @@ export function useTurnstile() {
     }
   }
 
-  return { token, error, montarEn }
+  // Los tokens de Turnstile son de un solo uso - si el submit que lo
+  // mandaba fallo del lado del servidor (contraseña incorrecta, sala
+  // vencida, lo que sea), el token ya quedo gastado aunque la persona no
+  // haya hecho nada mal. Sin este reset, un reintento manda el mismo token
+  // vencido y Cloudflare lo rechaza de nuevo sin importar que la persona
+  // ahora si tenga la contraseña correcta. Quien llama a esto debe hacerlo
+  // solo tras un fallo real de red/servidor, nunca tras un error de
+  // validacion puramente local (ver componentes que usan TurnstileWidget).
+  function reset() {
+    if (widgetId) window.turnstile?.reset(widgetId)
+    token.value = null
+  }
+
+  return { token, error, montarEn, reset }
 }
