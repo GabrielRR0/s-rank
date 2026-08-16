@@ -22,6 +22,7 @@ import {
   descifrarTexto,
 } from '../../services/secretChat/crypto.service'
 import { getPresenceKey, getRoomChannel, removeRoomChannel } from '../../services/secretChat/realtime.service'
+import { useChatNotifications } from './useChatNotifications'
 import { useEphemeralMessages } from './useEphemeralMessages'
 import { useKickVote } from './useKickVote'
 import { usePresenceCapacity } from './usePresenceCapacity'
@@ -49,6 +50,7 @@ export function useSecretChatRoom(roomId: string, clave: CryptoKey, apodo: strin
   const canal = getRoomChannel(roomId)
   const miClavePresencia = getPresenceKey(roomId)
   const { mensajes, agregar } = useEphemeralMessages(opciones.ttlSegundos)
+  const { notificarMensajeRecibido } = useChatNotifications()
   const { ocupantes, listaOcupantes, estado, conectar } = usePresenceCapacity(
     canal,
     opciones.capacidadMaxima,
@@ -69,6 +71,7 @@ export function useSecretChatRoom(roomId: string, clave: CryptoKey, apodo: strin
       const autor = await descifrarTexto(clave, envelope.autor)
       const texto = await descifrarTexto(clave, envelope.texto)
       agregar({ id: envelope.id, autor, texto, propio: false, enviadoEn: envelope.enviadoEn, tipo: 'texto' })
+      notificarMensajeRecibido(autor)
       // Si ya llego el mensaje, el aviso de "escribiendo" de esa persona
       // quedo obsoleto - no hace falta esperar a que expire solo (3s).
       detenerEscribiendo(autor)
@@ -98,6 +101,7 @@ export function useSecretChatRoom(roomId: string, clave: CryptoKey, apodo: strin
         mediaDatos: esImagen ? undefined : datos,
         mimeType: item.mimeType,
       })
+      notificarMensajeRecibido(autor)
     } catch {
       // Clave incorrecta, item ya vencido (raro pero posible si el TTL de
       // la sala corre mas rapido que la subida+bajada), o error de red - se

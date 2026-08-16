@@ -10,6 +10,10 @@ const esOscuro = ref(false)
 function aplicarTema(oscuro: boolean) {
   document.documentElement.dataset.theme = oscuro ? 'dark' : 'light'
   esOscuro.value = oscuro
+  // El navegador (barra de titulo/status bar en PWA instalada) no sigue
+  // data-theme solo - sin esto, elegir tema oscuro manualmente con el SO en
+  // claro (o viceversa) deja el chrome del navegador con el color viejo.
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', oscuro ? '#17161d' : '#ffffff')
 }
 
 onMounted(() => {

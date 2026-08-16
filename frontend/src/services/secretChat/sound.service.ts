@@ -1,13 +1,42 @@
-// Sonido sintetizado con Web Audio API (ruido blanco filtrado, sin archivo
-// de audio externo) - mismo criterio que crypto.service.ts: sin assets ni
-// dependencias nuevas para algo que el navegador ya puede generar. Se
-// dispara al registrar un mensaje (propio o recibido, ver useEphemeralMessages.ts).
+// Sonido sintetizado con Web Audio API (sin archivo de audio externo) -
+// mismo criterio que crypto.service.ts: sin assets ni dependencias nuevas
+// para algo que el navegador ya puede generar. Se dispara al registrar un
+// mensaje (propio o recibido, ver useEphemeralMessages.ts).
 import { getAudioContext } from '../audioContext.service'
 
-const DURACION_SEGUNDOS = 0.5
-// Pico de volumen bajo a proposito - un "soplido" apenas perceptible, no
-// una notificacion sonora tradicional.
-const VOLUMEN_PICO = 0.05
+// Dos notas cortas ascendientes (cuarta justa, F#5 -> B5) en vez del soplido
+// de ruido anterior - un "pop" tipo campanita, mas reconocible como "llego
+// un mensaje" sin ser un timbre tradicional estridente.
+const NOTA_1_HZ = 740
+const NOTA_2_HZ = 988
+const RETRASO_NOTA_2_SEGUNDOS = 0.085
+const DURACION_NOTA_SEGUNDOS = 0.22
+const ATAQUE_SEGUNDOS = 0.004
+
+function reproducirNota(ctx: AudioContext, frecuencia: number, inicioEn: number, volumenPico: number): void {
+  const oscilador = ctx.createOscillator()
+  oscilador.type = 'triangle'
+  oscilador.frequency.value = frecuencia
+
+  // Pasa-bajos suave: le saca filo a los armonicos de la onda triangular,
+  // para que la nota suene redonda/calida en vez de aguda o metalica.
+  const filtro = ctx.createBiquadFilter()
+  filtro.type = 'lowpass'
+  filtro.frequency.value = 3200
+  filtro.Q.value = 0.6
+
+  const ganancia = ctx.createGain()
+  ganancia.gain.setValueAtTime(0, inicioEn)
+  ganancia.gain.linearRampToValueAtTime(volumenPico, inicioEn + ATAQUE_SEGUNDOS)
+  ganancia.gain.exponentialRampToValueAtTime(0.0001, inicioEn + DURACION_NOTA_SEGUNDOS)
+
+  oscilador.connect(filtro)
+  filtro.connect(ganancia)
+  ganancia.connect(ctx.destination)
+
+  oscilador.start(inicioEn)
+  oscilador.stop(inicioEn + DURACION_NOTA_SEGUNDOS)
+}
 
 export function reproducirSonidoMensaje(): void {
   const ctx = getAudioContext()
@@ -18,36 +47,6 @@ export function reproducirSonidoMensaje(): void {
   // (crear/entrar a la sala), asi que resume() no deberia quedar pendiente.
   if (ctx.state === 'suspended') void ctx.resume()
 
-  const sampleRate = ctx.sampleRate
-  const bufferSize = Math.floor(sampleRate * DURACION_SEGUNDOS)
-  const buffer = ctx.createBuffer(1, bufferSize, sampleRate)
-  const datos = buffer.getChannelData(0)
-  for (let i = 0; i < bufferSize; i++) {
-    datos[i] = Math.random() * 2 - 1
-  }
-
-  const fuente = ctx.createBufferSource()
-  fuente.buffer = buffer
-
-  // Filtro pasa-banda que barre de agudo a grave: le da al ruido blanco el
-  // caracter de "soplido de viento" en vez de sonar como estatica.
-  const filtro = ctx.createBiquadFilter()
-  filtro.type = 'bandpass'
-  filtro.Q.value = 0.7
-  filtro.frequency.setValueAtTime(2200, ctx.currentTime)
-  filtro.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + DURACION_SEGUNDOS)
-
-  // Entra rapido y se apaga suave (ramp exponencial, mas natural al oido
-  // que uno lineal para un fade-out).
-  const ganancia = ctx.createGain()
-  ganancia.gain.setValueAtTime(0, ctx.currentTime)
-  ganancia.gain.linearRampToValueAtTime(VOLUMEN_PICO, ctx.currentTime + 0.04)
-  ganancia.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + DURACION_SEGUNDOS)
-
-  fuente.connect(filtro)
-  filtro.connect(ganancia)
-  ganancia.connect(ctx.destination)
-
-  fuente.start()
-  fuente.stop(ctx.currentTime + DURACION_SEGUNDOS)
+  reproducirNota(ctx, NOTA_1_HZ, ctx.currentTime, 0.16)
+  reproducirNota(ctx, NOTA_2_HZ, ctx.currentTime + RETRASO_NOTA_2_SEGUNDOS, 0.14)
 }
