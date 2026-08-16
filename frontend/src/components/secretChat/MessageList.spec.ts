@@ -1,9 +1,10 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import type { MensajeChat } from '../../composables/secretChat/useEphemeralMessages'
 import type { VaultPointer } from '../../composables/secretChat/useSecretChatRoom'
 import { useVaultItem } from '../../composables/secretChat/useVaultItem'
+import { definirMetricasScroll } from '../../test-support/domScrollMetrics'
 import MessageList from './MessageList.vue'
 
 vi.mock('../../composables/secretChat/useVaultItem', () => ({
@@ -37,7 +38,7 @@ describe('MessageList - el Cofre se intercala dentro del chat, no en un panel ap
     const vaults = [vault('v1', 2000)]
 
     const wrapper = mount(MessageList, {
-      props: { mensajes, vaults, clave: CLAVE_FALSA, ttlSegundos: 60 },
+      props: { mensajes, vaults, clave: CLAVE_FALSA, ttlSegundos: 60, noVistos: 0, reaccionesPorMensaje: {}, esVisto: () => false },
     })
 
     const items = wrapper.findAll('.message-bubble, .vault-card')
@@ -50,7 +51,9 @@ describe('MessageList - el Cofre se intercala dentro del chat, no en un panel ap
   it('sin items del Cofre, solo se renderizan los mensajes (sin panel/seccion aparte)', () => {
     const mensajes = [mensaje('m1', 1000)]
 
-    const wrapper = mount(MessageList, { props: { mensajes, vaults: [], clave: CLAVE_FALSA, ttlSegundos: 60 } })
+    const wrapper = mount(MessageList, {
+      props: { mensajes, vaults: [], clave: CLAVE_FALSA, ttlSegundos: 60, noVistos: 0, reaccionesPorMensaje: {}, esVisto: () => false },
+    })
 
     expect(wrapper.findAll('.message-bubble')).toHaveLength(1)
     expect(wrapper.find('.vault-card').exists()).toBe(false)
@@ -64,9 +67,6 @@ describe('MessageList - el Cofre se intercala dentro del chat, no en un panel ap
       valorDescifrado: ref('secreto'),
       valorDescifradoUrl: ref(null),
       valorDescifradoDatos: ref(null),
-      // false: el boton de accion (que dispara revelar()) solo se renderiza
-      // antes de revelar - una vez revelado ya no hay nada que gaste otra
-      // copia, ver VaultCard.vue.
       revelado: ref(false),
       revelando: ref(false),
       errorRevelar: ref(''),
@@ -74,12 +74,122 @@ describe('MessageList - el Cofre se intercala dentro del chat, no en un panel ap
     } as unknown as ReturnType<typeof useVaultItem>)
 
     const wrapper = mount(MessageList, {
-      props: { mensajes: [], vaults: [vault('v1', 1000)], clave: CLAVE_FALSA, ttlSegundos: 60 },
+      props: { mensajes: [], vaults: [vault('v1', 1000)], clave: CLAVE_FALSA, ttlSegundos: 60, noVistos: 0, reaccionesPorMensaje: {}, esVisto: () => false },
     })
 
     await wrapper.find('.vault-card .base-button').trigger('click')
     await wrapper.vm.$nextTick()
 
     expect(wrapper.emitted('copiado')).toEqual([['v1', 2]])
+  })
+
+  it('intercala un separador de fecha entre mensajes de dias distintos', () => {
+    const dia1 = new Date('2026-08-14T10:00:00Z').getTime()
+    const dia2 = new Date('2026-08-15T10:00:00Z').getTime()
+
+    const wrapper = mount(MessageList, {
+      props: {
+        mensajes: [mensaje('m1', dia1), mensaje('m2', dia2)],
+        vaults: [],
+        clave: CLAVE_FALSA,
+        ttlSegundos: 60,
+        noVistos: 0,
+        reaccionesPorMensaje: {},
+        esVisto: () => false,
+      },
+    })
+
+    expect(wrapper.findAll('.separador-fecha')).toHaveLength(2)
+  })
+})
+
+describe('MessageList - auto-scroll inteligente', () => {
+  it('si la persona esta cerca del fondo, un mensaje nuevo scrollea al final', async () => {
+    const wrapper = mount(MessageList, {
+      props: { mensajes: [mensaje('m1', 1000)], vaults: [], clave: CLAVE_FALSA, ttlSegundos: 60, noVistos: 0, reaccionesPorMensaje: {}, esVisto: () => false },
+    })
+    const el = wrapper.find('.message-list').element as HTMLDivElement
+    definirMetricasScroll(el, { scrollTop: 0, scrollHeight: 500, clientHeight: 500 })
+
+    await wrapper.setProps({ mensajes: [mensaje('m1', 1000), mensaje('m2', 2000)] })
+    // El watcher que mueve el scroll es async y hace su propio await
+    // nextTick() interno (ver MessageList.vue) - hace falta un tick extra
+    // ademas del que ya espera setProps().
+    await nextTick()
+
+    expect(el.scrollTop).toBe(500)
+  })
+
+  it('si la persona esta scrolleada para arriba, un mensaje nuevo NO mueve el scroll', async () => {
+    const wrapper = mount(MessageList, {
+      props: { mensajes: [mensaje('m1', 1000)], vaults: [], clave: CLAVE_FALSA, ttlSegundos: 60, noVistos: 0, reaccionesPorMensaje: {}, esVisto: () => false },
+    })
+    const el = wrapper.find('.message-list').element as HTMLDivElement
+    // Lejos del fondo: scrollHeight - scrollTop - clientHeight = 900 - 0 - 400 = 500 > umbral (80)
+    definirMetricasScroll(el, { scrollTop: 0, scrollHeight: 900, clientHeight: 400 })
+    await wrapper.find('.message-list').trigger('scroll')
+
+    await wrapper.setProps({
+      mensajes: [mensaje('m1', 1000), mensaje('m2', 2000)],
+      noVistos: 1,
+    })
+
+    expect(el.scrollTop).toBe(0)
+  })
+
+  it('muestra el pill de mensajes nuevos cuando esta lejos del fondo y hay no vistos', async () => {
+    const wrapper = mount(MessageList, {
+      props: { mensajes: [mensaje('m1', 1000)], vaults: [], clave: CLAVE_FALSA, ttlSegundos: 60, noVistos: 0, reaccionesPorMensaje: {}, esVisto: () => false },
+    })
+    const el = wrapper.find('.message-list').element as HTMLDivElement
+    definirMetricasScroll(el, { scrollTop: 0, scrollHeight: 900, clientHeight: 400 })
+    await wrapper.find('.message-list').trigger('scroll')
+    await wrapper.setProps({ noVistos: 3 })
+
+    const pill = wrapper.find('.pill-nuevos')
+    expect(pill.exists()).toBe(true)
+    expect(pill.text()).toContain('3')
+  })
+
+  it('al tocar el pill, scrollea al fondo y avisa "todo-visto"', async () => {
+    const wrapper = mount(MessageList, {
+      props: {
+        mensajes: [mensaje('m1', 1000)],
+        vaults: [],
+        clave: CLAVE_FALSA,
+        ttlSegundos: 60,
+        noVistos: 3,
+        reaccionesPorMensaje: {},
+        esVisto: () => false,
+      },
+    })
+    const el = wrapper.find('.message-list').element as HTMLDivElement
+    definirMetricasScroll(el, { scrollTop: 0, scrollHeight: 900, clientHeight: 400 })
+    await wrapper.find('.message-list').trigger('scroll')
+
+    await wrapper.find('.pill-nuevos').trigger('click')
+
+    expect(el.scrollTop).toBe(900)
+    expect(wrapper.emitted('todo-visto')).toHaveLength(1)
+  })
+
+  it('al volver a scrollear hasta el fondo por su cuenta, avisa "todo-visto"', async () => {
+    const wrapper = mount(MessageList, {
+      props: {
+        mensajes: [mensaje('m1', 1000)],
+        vaults: [],
+        clave: CLAVE_FALSA,
+        ttlSegundos: 60,
+        noVistos: 2,
+        reaccionesPorMensaje: {},
+        esVisto: () => false,
+      },
+    })
+    const el = wrapper.find('.message-list').element as HTMLDivElement
+
+    definirMetricasScroll(el, { scrollTop: 500, scrollHeight: 900, clientHeight: 400 })
+    await wrapper.find('.message-list').trigger('scroll')
+
+    expect(wrapper.emitted('todo-visto')).toHaveLength(1)
   })
 })

@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useLocale } from '../../i18n/useLocale'
 import type { CreateChatResult } from '../../composables/secretChat/useCreateChat'
+import { compartirEnlace } from '../../services/secretChat/share.service'
 import BaseButton from '../ui/BaseButton.vue'
 
 const props = defineProps<{ resultado: CreateChatResult }>()
@@ -11,11 +12,13 @@ const { t } = useLocale()
 const copiado = ref(false)
 
 async function copiarEnlace() {
-  await navigator.clipboard.writeText(props.resultado.enlace)
-  copiado.value = true
-  setTimeout(() => {
-    copiado.value = false
-  }, 2000)
+  const resultado = await compartirEnlace(props.resultado.enlace, t.value.appTitle)
+  if (resultado === 'copiado') {
+    copiado.value = true
+    setTimeout(() => {
+      copiado.value = false
+    }, 2000)
+  }
 }
 </script>
 

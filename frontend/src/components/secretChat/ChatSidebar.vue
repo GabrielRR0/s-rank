@@ -1,23 +1,45 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useLocale } from '../../i18n/useLocale'
-import { useClipboard } from '../../composables/useClipboard'
+import { useSwipeGesture } from '../../composables/useSwipeGesture'
+import { compartirEnlace as compartirEnlaceNativo } from '../../services/secretChat/share.service'
 import type { Ocupante } from '../../composables/secretChat/usePresenceCapacity'
 import AppLogo from '../ui/AppLogo.vue'
 import OccupantList from './OccupantList.vue'
 
-defineProps<{ ocupantes: Ocupante[]; abierto: boolean; objetivoVoto: string | null }>()
+const props = defineProps<{ ocupantes: Ocupante[]; abierto: boolean; objetivoVoto: string | null }>()
 const emit = defineEmits<{ cerrar: []; 'iniciar-voto': [clavePresencia: string] }>()
 
 const { t } = useLocale()
-const { copiado, copiar } = useClipboard()
+const compartido = ref(false)
 
-function compartirEnlace() {
-  copiar(window.location.href)
+async function compartirEnlace() {
+  const resultado = await compartirEnlaceNativo(window.location.href, t.value.appTitle)
+  if (resultado === 'copiado') {
+    compartido.value = true
+    setTimeout(() => (compartido.value = false), 2000)
+  }
 }
+
+// Deslizar hacia la izquierda para cerrar (mobile, ver @media abajo) -
+// touch-action:pan-y en el CSS deja pasar el scroll vertical nativo de
+// OccupantList, solo el arrastre horizontal lo captura este gesto.
+const { arrastrando, deltaX, onPointerDown, onPointerMove, onPointerUp, onPointerLeave } = useSwipeGesture({
+  direccion: 'izquierda',
+  onCommit: () => emit('cerrar'),
+})
 </script>
 
 <template>
-  <aside class="chat-sidebar" :class="{ abierto }">
+  <aside
+    class="chat-sidebar"
+    :class="{ abierto }"
+    :style="props.abierto && arrastrando ? { transform: `translateX(${deltaX}px)`, transition: 'none' } : undefined"
+    @pointerdown="onPointerDown"
+    @pointermove="onPointerMove"
+    @pointerup="onPointerUp"
+    @pointerleave="onPointerLeave"
+  >
     <div class="sidebar-header">
       <a href="/" class="marca-mini">
         <AppLogo />
@@ -38,7 +60,7 @@ function compartirEnlace() {
           d="M13 4.5a2.5 2.5 0 11.702 1.737L6.97 9.604a2.518 2.518 0 010 .792l6.732 3.367a2.5 2.5 0 11-.671 1.341l-6.732-3.367a2.5 2.5 0 110-3.474l6.732-3.367A2.5 2.5 0 0113 4.5z"
         />
       </svg>
-      {{ copiado ? t.copiedButton : t.chatShareLinkButton }}
+      {{ compartido ? t.copiedButton : t.chatShareLinkButton }}
     </button>
   </aside>
 </template>
@@ -143,6 +165,10 @@ function compartirEnlace() {
     z-index: 1;
     transform: translateX(-100%);
     transition: transform var(--duration-base) var(--ease-out);
+    /* Deja pasar el scroll vertical nativo de OccupantList - solo el
+       arrastre horizontal (cerrar deslizando) lo captura el pointer handler
+       de arriba, ver useSwipeGesture.ts. */
+    touch-action: pan-y;
   }
 
   .chat-sidebar.abierto {

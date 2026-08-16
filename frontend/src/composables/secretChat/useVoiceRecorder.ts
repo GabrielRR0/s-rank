@@ -1,5 +1,6 @@
 import { onUnmounted, ref } from 'vue'
 import { useLocale } from '../../i18n/useLocale'
+import { PATRON_GRABACION_FIN, PATRON_GRABACION_INICIO, vibrar } from '../../services/secretChat/haptics.service'
 
 export interface AudioGrabado {
   datos: ArrayBuffer
@@ -46,6 +47,7 @@ export function useVoiceRecorder() {
       mediaRecorder.start()
       grabando.value = true
       duracionSegundos.value = 0
+      vibrar(PATRON_GRABACION_INICIO)
       intervalo = setInterval(() => {
         duracionSegundos.value += 1
         if (duracionSegundos.value >= DURACION_MAXIMA_SEGUNDOS) detener()
@@ -70,6 +72,7 @@ export function useVoiceRecorder() {
       mediaRecorder.stop()
       grabando.value = false
       limpiarIntervalo()
+      vibrar(PATRON_GRABACION_FIN)
     })
   }
 

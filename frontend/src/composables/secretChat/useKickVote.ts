@@ -12,6 +12,7 @@ import {
   type KickVoteStartEnvelope,
 } from '../../services/secretChat/chat.service'
 import { removeRoomChannel } from '../../services/secretChat/realtime.service'
+import { PATRON_VOTO_EMITIDO, vibrar } from '../../services/secretChat/haptics.service'
 import { marcarExpulsado, limpiarSesion } from './useRoomSession'
 import type { Ocupante } from './usePresenceCapacity'
 
@@ -123,6 +124,7 @@ export function useKickVote(
       event: EVENTO_VOTO_EXPULSION_VOTAR,
       payload: crearKickVoteCastEnvelope(voto.votoId, miClavePresencia),
     })
+    vibrar(PATRON_VOTO_EMITIDO)
     // broadcast.self:false (ver realtime.service.ts) - el propio voto no
     // vuelve solo, hay que contarlo a mano igual que enviarMensaje().
     manejarVoto({ votoId: voto.votoId, votanteClavePresencia: miClavePresencia })
