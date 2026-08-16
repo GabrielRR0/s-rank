@@ -3,12 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover habilita env(safe-area-inset-*) - lo usa
+         ChatRoomConnected.vue para que el footer del chat no quede tapado
+         por la barra flotante inferior de Safari en iOS. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- El id del share vive en la URL misma (/s/:id) - sin esto, el
          navegador mandaria esa URL completa como Referer a cualquier sitio
          de terceros al que se navegue desde esta pagina (una imagen externa,
          un link), filtrando el "secreto" fuera de este dominio. -->
     <meta name="referrer" content="no-referrer" />
+
+    <!-- Instalable como app (Android/Chrome via manifest+beforeinstallprompt,
+         ver useInstallPrompt.ts; iOS via "Compartir > Agregar a inicio", sin
+         API - ver NotifyInstallBanner.vue). El valor de theme-color es solo
+         el inicial (tema claro) - ThemeToggle.vue lo actualiza en vivo segun
+         el tema real elegido. -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="S-Rank" />
+    <!-- "default" (no "black-translucent"): eso ultimo dibujaria el
+         contenido debajo del notch/status bar de iOS, y hoy solo
+         .chat-footer maneja su propio safe-area-inset-bottom - nada maneja
+         un inset superior todavia (ver ChatHeader.vue/.app-topbar). -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
     <title>S-Rank</title>
   </head>
   <body>

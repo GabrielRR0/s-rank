@@ -11,9 +11,16 @@ import HeaderMenu from './components/ui/HeaderMenu.vue'
 import LanguageToggle from './components/ui/LanguageToggle.vue'
 import ThemeToggle from './components/ui/ThemeToggle.vue'
 import { apodoActual } from './composables/secretChat/useRoomNickname'
+import { useInstallPrompt } from './composables/useInstallPrompt'
 import { useLocale } from './i18n/useLocale'
 
 const { t } = useLocale()
+
+// Solo para registrar cuanto antes el listener de beforeinstallprompt (ver
+// ese archivo) - el evento se dispara una sola vez por carga y se pierde
+// para siempre si nadie lo esta escuchando todavia. No hace falta usar
+// nada de lo que devuelve aca; NotifyInstallBanner.vue si lo consume.
+useInstallPrompt()
 
 // El avatar solo existe una vez que la persona eligio un apodo para algun
 // chat secreto (ver useRoomNickname.ts) - antes de eso no hay ninguna

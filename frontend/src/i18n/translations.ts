@@ -140,6 +140,16 @@ export const translations: Record<Locale, Record<string, string>> = {
     chatImageConfirmMessage: 'Vas a poder verla solo unos segundos. Después no vas a poder volver a verla.',
     audioPlayerPlayAria: 'Reproducir',
     audioPlayerPauseAria: 'Pausar',
+    chatNotificationTitle: '{apodo} envió un mensaje',
+    chatNotifyPromptTitle: '¿Recibir avisos de mensajes nuevos?',
+    chatNotifyPromptBody:
+      'Te avisamos con una notificación del navegador si llega un mensaje y esta pestaña está en segundo plano. Nunca mostramos el contenido.',
+    chatNotifyPromptEnable: 'Activar avisos',
+    installPromptTitle: 'Instalá S-Rank en tu dispositivo',
+    installPromptBodyAndroid: 'Accedé más rápido, como una app.',
+    installPromptBodyIOS: 'Tocá el ícono de compartir de Safari y elegí "Agregar a inicio".',
+    installPromptButton: 'Instalar',
+    promptDismiss: 'Ahora no',
   },
   en: {
     appTitle: 'S-Rank',
@@ -280,5 +290,15 @@ export const translations: Record<Locale, Record<string, string>> = {
     chatImageConfirmMessage: "You'll only be able to see it for a few seconds. After that, you won't be able to view it again.",
     audioPlayerPlayAria: 'Play',
     audioPlayerPauseAria: 'Pause',
+    chatNotificationTitle: '{apodo} sent a message',
+    chatNotifyPromptTitle: 'Get notified about new messages?',
+    chatNotifyPromptBody:
+      "We'll show a browser notification if a message arrives while this tab is in the background. We never show the content.",
+    chatNotifyPromptEnable: 'Enable notifications',
+    installPromptTitle: 'Install S-Rank on your device',
+    installPromptBodyAndroid: 'Get faster access, like an app.',
+    installPromptBodyIOS: 'Tap the Share icon in Safari and choose "Add to Home Screen".',
+    installPromptButton: 'Install',
+    promptDismiss: 'Not now',
   },
 }

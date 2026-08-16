@@ -8,6 +8,7 @@ import KickedGate from './KickedGate.vue'
 import KickVoteBanner from './KickVoteBanner.vue'
 import MessageComposer from './MessageComposer.vue'
 import MessageList from './MessageList.vue'
+import NotifyInstallBanner from './NotifyInstallBanner.vue'
 import ReverifyBanner from './ReverifyBanner.vue'
 import VaultComposer from './VaultComposer.vue'
 
@@ -107,6 +108,8 @@ const mayoriaVoto = computed(() => Math.floor(listaOcupantes.value.length / 2) +
             />
           </Transition>
 
+          <NotifyInstallBanner />
+
           <div class="chat-body">
             <MessageList
               :mensajes="mensajes"
@@ -199,6 +202,12 @@ const mayoriaVoto = computed(() => Math.floor(listaOcupantes.value.length / 2) +
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
+  /* env(safe-area-inset-bottom) (0 si el navegador no lo soporta, cae al
+     0.75rem de arriba) - en iOS la barra flotante inferior de Safari se
+     superpone al contenido en vez de encogerle el viewport, tapando el
+     composer sin este colchon extra. Necesita viewport-fit=cover en
+     index.html; sin eso env() siempre da 0. */
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
   border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   /* --bg (no --bg-surface) para matchear el mismo fondo de .panel-principal
      que se ve a traves de .chat-body - y un toque de --accent mezclado

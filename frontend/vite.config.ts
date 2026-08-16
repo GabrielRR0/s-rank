@@ -14,5 +14,6 @@ export default defineConfig({
     // El pool por defecto ('forks') no arranca en algunos entornos de
     // desarrollo restringidos - mismo ajuste que contract-generator.
     pool: 'threads',
+    setupFiles: ['./src/test-setup.ts'],
   },
 })

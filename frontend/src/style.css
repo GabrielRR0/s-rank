@@ -137,8 +137,28 @@
     box-shadow var(--duration-base) var(--ease-out);
 }
 
+/* html/body fijos (no solo .app-shell) - el ajuste de .app-shell a 100dvh
+   (App.vue) resuelve el mal calculo de 100vh, pero no alcanza solo: al
+   enfocar un input, iOS Safari tiene su PROPIO mecanismo a nivel de SO para
+   "desplazar la pagina hasta que el input enfocado quede visible", separado
+   por completo de cualquier overflow/scroll definido en CSS - puede seguir
+   paneando la pagina entera (arrastrando header y footer del chat con ella)
+   aunque .app-shell ya tenga overflow:hidden. Fijando html/body de verdad
+   (position:fixed, sin scroll propio posible) ese mecanismo no tiene nada
+   que desplazar - unicamente los contenedores con su propio overflow:auto
+   (ej. .message-list en ChatRoomConnected.vue) pueden scrollear. */
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
+  position: fixed;
+  inset: 0;
   margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 h1,
