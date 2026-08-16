@@ -25,11 +25,23 @@ export const EVENTO_VOTO_EXPULSION_EXPULSADO = 'kick-vote-kicked'
 // pedir para bajar el contenido (ver useSecretChatRoom.manejarMediaPointer).
 export const EVENTO_MEDIA_POINTER = 'media-pointer'
 
+// Vista previa de a que mensaje se responde (ver MessageComposer.vue/
+// MessageBubble.vue) - limitado a mensajes de texto por ahora, no a
+// imagen/audio (extenderlo a media queda como mejora futura, no bloquea nada
+// de esto). mensajeId va en claro (como vaultId - solo un id); autor/extracto
+// son contenido real, cifrados igual que el resto del mensaje.
+export interface RespuestaPreview {
+  mensajeId: string
+  autor: TextoCifrado
+  extracto: TextoCifrado
+}
+
 export interface MensajeEnvelope {
   id: string
   autor: TextoCifrado
   texto: TextoCifrado
   enviadoEn: number
+  respuestaA?: RespuestaPreview
 }
 
 // Apunta a un item ya creado en el backend (POST /api/secret-vault) - el
@@ -50,8 +62,12 @@ export interface VaultCopyUpdateEnvelope {
   copiasRestantes: number
 }
 
-export function crearMensajeEnvelope(autor: TextoCifrado, texto: TextoCifrado): MensajeEnvelope {
-  return { id: crypto.randomUUID(), autor, texto, enviadoEn: Date.now() }
+export function crearMensajeEnvelope(
+  autor: TextoCifrado,
+  texto: TextoCifrado,
+  respuestaA?: RespuestaPreview,
+): MensajeEnvelope {
+  return { id: crypto.randomUUID(), autor, texto, enviadoEn: Date.now(), respuestaA }
 }
 
 export function crearVaultPointerEnvelope(vaultId: string, maxCopias: number, expiraEn: string): VaultPointerEnvelope {
@@ -103,4 +119,40 @@ export interface MediaPointerEnvelope {
 
 export function crearMediaPointerEnvelope(mediaId: string, autor: TextoCifrado): MediaPointerEnvelope {
   return { id: crypto.randomUUID(), mediaId, autor, enviadoEn: Date.now() }
+}
+
+// Reaccion con emoji (set fijo, ver MessageActionBar.vue) - 'agregar'/'quitar'
+// en vez de dos eventos separados: tocar el mismo emoji ya puesto lo retira,
+// misma logica de toggle en useMessageReactions.ts.
+export const EVENTO_REACCION = 'reaccion'
+
+export interface ReaccionEnvelope {
+  mensajeId: string // claro, como vaultId - solo un id, no contenido
+  autorClavePresencia: string // claro, como en kick-vote - no es secreto
+  emoji: TextoCifrado // contenido -> cifrado, igual que `texto`
+  accion: 'agregar' | 'quitar'
+}
+
+export function crearReaccionEnvelope(
+  mensajeId: string,
+  autorClavePresencia: string,
+  emoji: TextoCifrado,
+  accion: 'agregar' | 'quitar',
+): ReaccionEnvelope {
+  return { mensajeId, autorClavePresencia, emoji, accion }
+}
+
+// "Visto": un solo ping simple (alguien mas desencripto el mensaje), sin
+// distinguir entregado/leido ni trackear por persona - los TTLs cortos de
+// este chat (5-60s) hacen que un tally completo tipo WhatsApp valga poco
+// por su complejidad (ver useMessageSeen.ts).
+export const EVENTO_MENSAJE_VISTO = 'mensaje-visto'
+
+export interface VistoEnvelope {
+  mensajeId: string
+  autorClavePresencia: string
+}
+
+export function crearVistoEnvelope(mensajeId: string, autorClavePresencia: string): VistoEnvelope {
+  return { mensajeId, autorClavePresencia }
 }

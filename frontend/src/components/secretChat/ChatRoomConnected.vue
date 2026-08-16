@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import type { MensajeChat } from '../../composables/secretChat/useEphemeralMessages'
 import { useSecretChatRoom } from '../../composables/secretChat/useSecretChatRoom'
+import { useTickingClock } from '../../composables/secretChat/useTickingClock'
 import CapacityGate from './CapacityGate.vue'
 import ChatHeader from './ChatHeader.vue'
 import ChatSidebar from './ChatSidebar.vue'
@@ -30,6 +32,11 @@ const props = defineProps<{
 const {
   mensajes,
   vaults,
+  noVistos,
+  marcarTodoVisto,
+  reaccionesPorMensaje,
+  reaccionar,
+  esVisto,
   estado,
   estadoAuth,
   reintentarAuth,
@@ -51,9 +58,31 @@ const {
   ttlSegundos: props.ttlSegundos,
 })
 
+// Un solo reloj compartido para toda la sala (ver useTickingClock.ts) - se
+// arranca aca (dueño del ciclo de vida de la conexion) para que cada
+// MessageBubble.vue no corra su propio setInterval.
+useTickingClock()
+
 // Solo importa en mobile (ver ChatSidebar.vue) - en desktop el sidebar esta
 // siempre visible, este estado no se usa para nada ahi.
 const sidebarAbierta = ref(false)
+
+// Mensaje al que se esta respondiendo (barra sobre MessageComposer.vue) -
+// null si no se esta respondiendo a nada. Limitado a mensajes de texto, ver
+// MessageBubble.vue (el swipe/menu de "Responder" ya no se ofrece en media).
+const respondiendoA = ref<MensajeChat | null>(null)
+
+function manejarResponder(mensaje: MensajeChat) {
+  respondiendoA.value = mensaje
+}
+
+async function manejarEnviar(texto: string) {
+  const respuestaA = respondiendoA.value?.texto
+    ? { mensajeId: respondiendoA.value.id, autor: respondiendoA.value.autor, extracto: respondiendoA.value.texto }
+    : undefined
+  await enviarMensaje(texto, respuestaA)
+  respondiendoA.value = null
+}
 
 // Misma formula que useKickVote.ts (recalculada aca solo para mostrarla en
 // el banner, la logica real de si ya se alcanzo vive en el composable).
@@ -116,7 +145,13 @@ const mayoriaVoto = computed(() => Math.floor(listaOcupantes.value.length / 2) +
               :vaults="vaults"
               :clave="clave"
               :ttl-segundos="ttlSegundos"
+              :no-vistos="noVistos"
+              :reacciones-por-mensaje="reaccionesPorMensaje"
+              :es-visto="esVisto"
               @copiado="notificarCopiaVault"
+              @todo-visto="marcarTodoVisto"
+              @responder="manejarResponder"
+              @reaccionar="reaccionar"
             />
           </div>
 
@@ -125,10 +160,12 @@ const mayoriaVoto = computed(() => Math.floor(listaOcupantes.value.length / 2) +
             <MessageComposer
               :clave="clave"
               :room-id="roomId"
-              @enviar="enviarMensaje"
+              :respondiendo-a="respondiendoA"
+              @enviar="manejarEnviar"
               @escribiendo="notificarEscribiendo"
               @enviar-media="enviarMedia"
               @compartido="compartirVault"
+              @cancelar-respuesta="respondiendoA = null"
             />
           </div>
         </div>

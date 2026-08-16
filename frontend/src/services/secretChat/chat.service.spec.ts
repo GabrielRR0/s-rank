@@ -5,8 +5,10 @@ import {
   crearKickVoteStartEnvelope,
   crearMediaPointerEnvelope,
   crearMensajeEnvelope,
+  crearReaccionEnvelope,
   crearVaultCopyUpdateEnvelope,
   crearVaultPointerEnvelope,
+  crearVistoEnvelope,
 } from './chat.service'
 import type { TextoCifrado } from './crypto.service'
 
@@ -65,6 +67,27 @@ describe('chat.service - factories de envelope', () => {
   it('ningun envelope de mensaje/media/vault expone texto plano - solo TextoCifrado/ids/timestamps', () => {
     const envelope = crearMensajeEnvelope(CIFRADO_FALSO, CIFRADO_FALSO)
     const claves = Object.keys(envelope)
-    expect(claves.sort()).toEqual(['autor', 'enviadoEn', 'id', 'texto'].sort())
+    expect(claves.sort()).toEqual(['autor', 'enviadoEn', 'id', 'respuestaA', 'texto'].sort())
+    expect(envelope.respuestaA).toBeUndefined()
+  })
+
+  it('crearMensajeEnvelope incluye la vista previa de respuesta cuando se pasa', () => {
+    const respuestaA = { mensajeId: 'm-1', autor: CIFRADO_FALSO, extracto: CIFRADO_FALSO }
+    const envelope = crearMensajeEnvelope(CIFRADO_FALSO, CIFRADO_FALSO, respuestaA)
+
+    expect(envelope.respuestaA).toEqual(respuestaA)
+  })
+
+  it('crearReaccionEnvelope es un mapeo directo, sin generar ids nuevos', () => {
+    expect(crearReaccionEnvelope('m-1', 'presencia-1', CIFRADO_FALSO, 'agregar')).toEqual({
+      mensajeId: 'm-1',
+      autorClavePresencia: 'presencia-1',
+      emoji: CIFRADO_FALSO,
+      accion: 'agregar',
+    })
+  })
+
+  it('crearVistoEnvelope es un mapeo directo, sin campos extra', () => {
+    expect(crearVistoEnvelope('m-1', 'presencia-1')).toEqual({ mensajeId: 'm-1', autorClavePresencia: 'presencia-1' })
   })
 })

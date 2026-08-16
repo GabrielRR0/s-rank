@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useLocale } from '../../i18n/useLocale'
+import type { MensajeChat } from '../../composables/secretChat/useEphemeralMessages'
 import { useMediaAttachment } from '../../composables/secretChat/useMediaAttachment'
 import { useVoiceRecorder } from '../../composables/secretChat/useVoiceRecorder'
 import { validateMessageInput } from '../../utils/validators/validateChatInput'
 import MediaSendPrompt from './MediaSendPrompt.vue'
 
-const props = defineProps<{ clave: CryptoKey; roomId: string }>()
+const props = defineProps<{ clave: CryptoKey; roomId: string; respondiendoA: MensajeChat | null }>()
 const emit = defineEmits<{
   enviar: [texto: string]
   escribiendo: []
   'enviar-media': [datos: ArrayBuffer, mimeType: string]
   compartido: [vaultId: string, maxCopias: number, expiraEn: string]
+  'cancelar-respuesta': []
 }>()
 
 const { t } = useLocale()
@@ -83,7 +85,27 @@ function manejarCompartido(vaultId: string, maxCopias: number, expiraEn: string)
       @cancelar="cerrarPrompt"
     />
 
-    <form v-else class="fila" @submit.prevent="enviar">
+    <template v-else>
+      <div v-if="respondiendoA" class="respondiendo-barra">
+        <div class="respondiendo-texto">
+          <span class="respondiendo-etiqueta">{{ t.replyingToLabel.replace('{apodo}', respondiendoA.autor) }}</span>
+          <span v-if="respondiendoA.texto" class="respondiendo-extracto">{{ respondiendoA.texto }}</span>
+        </div>
+        <button
+          type="button"
+          class="boton-cancelar-respuesta"
+          :aria-label="t.replyingToCancelAria"
+          @click="emit('cancelar-respuesta')"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path
+              d="M5.28 4.22a.75.75 0 00-1.06 1.06L8.94 10l-4.72 4.72a.75.75 0 101.06 1.06L10 11.06l4.72 4.72a.75.75 0 101.06-1.06L11.06 10l4.72-4.72a.75.75 0 00-1.06-1.06L10 8.94 5.28 4.22z"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <form class="fila" @submit.prevent="enviar">
       <input type="file" accept="image/*" class="input-oculto" id="input-adjuntar-imagen" @change="seleccionarArchivo" />
       <label for="input-adjuntar-imagen" class="boton-icono" :aria-label="t.attachImageAria" :title="t.attachImageAria">
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -123,7 +145,8 @@ function manejarCompartido(vaultId: string, maxCopias: number, expiraEn: string)
           <path d="M3 10l13-6-4 6 4 6-13-6z" />
         </svg>
       </button>
-    </form>
+      </form>
+    </template>
 
     <p v-if="grabando" class="grabando-texto">{{ t.recordingLabel.replace('{segundos}', String(duracionSegundos)) }}</p>
     <p v-if="error" class="error-mensaje">{{ error }}</p>
@@ -143,6 +166,57 @@ function manejarCompartido(vaultId: string, maxCopias: number, expiraEn: string)
   display: flex;
   align-items: center;
   gap: 0.625rem;
+}
+
+.respondiendo-barra {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.375rem 0.75rem;
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+}
+
+.respondiendo-texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+}
+
+.respondiendo-etiqueta {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.respondiendo-extracto {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boton-cancelar-respuesta {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.boton-cancelar-respuesta svg {
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 .campo-mensaje {

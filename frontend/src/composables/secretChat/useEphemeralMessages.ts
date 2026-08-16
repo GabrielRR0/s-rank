@@ -1,6 +1,15 @@
 import { onUnmounted, ref } from 'vue'
 import { reproducirSonidoMensaje } from '../../services/secretChat/sound.service'
 
+// Vista previa (ya descifrada) del mensaje al que se responde - ver
+// RespuestaPreview en chat.service.ts para la version cifrada que viaja por
+// el broadcast. Limitado a mensajes de texto por ahora.
+export interface RespuestaPreviewChat {
+  mensajeId: string
+  autor: string
+  extracto: string
+}
+
 export interface MensajeChat {
   id: string
   autor: string
@@ -16,6 +25,7 @@ export interface MensajeChat {
   mediaUrl?: string
   mediaDatos?: ArrayBuffer
   mimeType?: string
+  respuestaA?: RespuestaPreviewChat
 }
 
 function revocarSiEsMedia(mensaje: MensajeChat | undefined) {
@@ -30,7 +40,11 @@ function revocarSiEsMedia(mensaje: MensajeChat | undefined) {
 // llegar aca (Supabase Broadcast es pub/sub puro, nunca toca Postgres - ver
 // backend/README.md seccion 12), asi que "autodestruir" un mensaje es
 // simplemente sacarlo de este array reactivo. Sin round-trip al servidor.
-export function useEphemeralMessages(ttlSegundos: number) {
+// onQuitar (opcional): avisa a quien llama cuando un mensaje se autodestruye,
+// para que pueda limpiar su propio estado asociado a ese id (reacciones en
+// useMessageReactions.ts, tick de "visto" en useMessageSeen.ts) sin que este
+// archivo necesite saber que esas cosas existen.
+export function useEphemeralMessages(ttlSegundos: number, onQuitar?: (id: string) => void) {
   const mensajes = ref<MensajeChat[]>([])
   const timeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
@@ -40,6 +54,7 @@ export function useEphemeralMessages(ttlSegundos: number) {
     const timeout = timeouts.get(id)
     if (timeout) clearTimeout(timeout)
     timeouts.delete(id)
+    onQuitar?.(id)
   }
 
   function agregar(mensaje: MensajeChat) {

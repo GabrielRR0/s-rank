@@ -10,6 +10,7 @@ import {
   EVENTO_VAULT_POINTER,
   type MediaPointerEnvelope,
   type MensajeEnvelope,
+  type RespuestaPreview,
   type VaultCopyUpdateEnvelope,
   type VaultPointerEnvelope,
 } from '../../services/secretChat/chat.service'
@@ -22,12 +23,16 @@ import {
   descifrarTexto,
 } from '../../services/secretChat/crypto.service'
 import { getPresenceKey, getRoomChannel, removeRoomChannel } from '../../services/secretChat/realtime.service'
+import { PATRON_MENSAJE_ENVIADO, PATRON_MENSAJE_RECIBIDO, vibrar } from '../../services/secretChat/haptics.service'
 import { useChatNotifications } from './useChatNotifications'
-import { useEphemeralMessages } from './useEphemeralMessages'
+import { useEphemeralMessages, type RespuestaPreviewChat } from './useEphemeralMessages'
 import { useKickVote } from './useKickVote'
+import { useMessageReactions } from './useMessageReactions'
+import { useMessageSeen } from './useMessageSeen'
 import { usePresenceCapacity } from './usePresenceCapacity'
 import { useRealtimeAuth } from './useRealtimeAuth'
 import { useTypingIndicator } from './useTypingIndicator'
+import { useUnreadMessages } from './useUnreadMessages'
 
 export interface VaultPointer {
   vaultId: string
@@ -49,8 +54,17 @@ interface OpcionesSala {
 export function useSecretChatRoom(roomId: string, clave: CryptoKey, apodo: string, opciones: OpcionesSala) {
   const canal = getRoomChannel(roomId)
   const miClavePresencia = getPresenceKey(roomId)
-  const { mensajes, agregar } = useEphemeralMessages(opciones.ttlSegundos)
+  const { reaccionesPorMensaje, reaccionar, limpiarReaccionesDe } = useMessageReactions(canal, clave, miClavePresencia)
+  const { esVisto, marcarVisto, limpiarVistoDe } = useMessageSeen(canal, miClavePresencia)
+  // Cuando un mensaje se autodestruye, tambien se limpian sus reacciones y
+  // su tick de "visto" - sin esto quedarian acumulandose en memoria por ids
+  // de mensajes que ya no existen.
+  const { mensajes, agregar } = useEphemeralMessages(opciones.ttlSegundos, (id) => {
+    limpiarReaccionesDe(id)
+    limpiarVistoDe(id)
+  })
   const { notificarMensajeRecibido } = useChatNotifications()
+  const { noVistos, marcarNoVisto, marcarTodoVisto } = useUnreadMessages()
   const { ocupantes, listaOcupantes, estado, conectar } = usePresenceCapacity(
     canal,
     opciones.capacidadMaxima,
@@ -66,12 +80,25 @@ export function useSecretChatRoom(roomId: string, clave: CryptoKey, apodo: strin
   const { votoActivo, expulsado, iniciarVoto, votar } = useKickVote(canal, roomId, miClavePresencia, listaOcupantes)
   const vaults = ref<VaultPointer[]>([])
 
+  async function descifrarRespuesta(respuestaA?: RespuestaPreview): Promise<RespuestaPreviewChat | undefined> {
+    if (!respuestaA) return undefined
+    return {
+      mensajeId: respuestaA.mensajeId,
+      autor: await descifrarTexto(clave, respuestaA.autor),
+      extracto: await descifrarTexto(clave, respuestaA.extracto),
+    }
+  }
+
   async function manejarMensajeEntrante(envelope: MensajeEnvelope) {
     try {
       const autor = await descifrarTexto(clave, envelope.autor)
       const texto = await descifrarTexto(clave, envelope.texto)
-      agregar({ id: envelope.id, autor, texto, propio: false, enviadoEn: envelope.enviadoEn, tipo: 'texto' })
+      const respuestaA = await descifrarRespuesta(envelope.respuestaA)
+      agregar({ id: envelope.id, autor, texto, propio: false, enviadoEn: envelope.enviadoEn, tipo: 'texto', respuestaA })
       notificarMensajeRecibido(autor)
+      marcarNoVisto()
+      marcarVisto(envelope.id)
+      vibrar(PATRON_MENSAJE_RECIBIDO)
       // Si ya llego el mensaje, el aviso de "escribiendo" de esa persona
       // quedo obsoleto - no hace falta esperar a que expire solo (3s).
       detenerEscribiendo(autor)
@@ -102,6 +129,9 @@ export function useSecretChatRoom(roomId: string, clave: CryptoKey, apodo: strin
         mimeType: item.mimeType,
       })
       notificarMensajeRecibido(autor)
+      marcarNoVisto()
+      marcarVisto(envelope.id)
+      vibrar(PATRON_MENSAJE_RECIBIDO)
     } catch {
       // Clave incorrecta, item ya vencido (raro pero posible si el TTL de
       // la sala corre mas rapido que la subida+bajada), o error de red - se
@@ -143,15 +173,33 @@ export function useSecretChatRoom(roomId: string, clave: CryptoKey, apodo: strin
   // y sin red. cifrarTexto corre en paralelo, es independiente.
   Promise.all([iniciarAuth(), cifrarTexto(clave, apodo)]).then(([, apodoCifrado]) => conectar(apodoCifrado))
 
-  async function enviarMensaje(texto: string) {
+  async function enviarMensaje(texto: string, respuestaA?: RespuestaPreviewChat) {
     if (!canal || !texto.trim()) return
     const autorCifrado = await cifrarTexto(clave, apodo)
     const textoCifrado = await cifrarTexto(clave, texto)
-    const envelope = crearMensajeEnvelope(autorCifrado, textoCifrado)
+    const respuestaCifrada: RespuestaPreview | undefined = respuestaA
+      ? {
+          mensajeId: respuestaA.mensajeId,
+          autor: await cifrarTexto(clave, respuestaA.autor),
+          extracto: await cifrarTexto(clave, respuestaA.extracto),
+        }
+      : undefined
+    const envelope = crearMensajeEnvelope(autorCifrado, textoCifrado, respuestaCifrada)
     await canal.send({ type: 'broadcast', event: EVENTO_MENSAJE, payload: envelope })
     // broadcast.self:false (ver realtime.service.ts) - el emisor no se
-    // recibe a si mismo, hay que empujar el propio mensaje a mano.
-    agregar({ id: envelope.id, autor: apodo, texto, propio: true, enviadoEn: envelope.enviadoEn, tipo: 'texto' })
+    // recibe a si mismo, hay que empujar el propio mensaje a mano. Se manda
+    // el respuestaA ya descifrado (no hace falta volver a descifrar lo que
+    // uno mismo acaba de escribir).
+    agregar({
+      id: envelope.id,
+      autor: apodo,
+      texto,
+      propio: true,
+      enviadoEn: envelope.enviadoEn,
+      tipo: 'texto',
+      respuestaA,
+    })
+    vibrar(PATRON_MENSAJE_ENVIADO)
   }
 
   async function enviarMedia(datos: ArrayBuffer, mimeType: string) {
@@ -186,6 +234,7 @@ export function useSecretChatRoom(roomId: string, clave: CryptoKey, apodo: strin
       mediaDatos: esImagen ? undefined : datos,
       mimeType,
     })
+    vibrar(PATRON_MENSAJE_ENVIADO)
   }
 
   function compartirVault(vaultId: string, maxCopias: number, expiraEn: string) {
@@ -212,6 +261,11 @@ export function useSecretChatRoom(roomId: string, clave: CryptoKey, apodo: strin
   return {
     mensajes,
     vaults,
+    noVistos,
+    marcarTodoVisto,
+    reaccionesPorMensaje,
+    reaccionar,
+    esVisto,
     ocupantes,
     listaOcupantes,
     miClavePresencia,

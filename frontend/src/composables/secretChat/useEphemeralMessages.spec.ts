@@ -3,12 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { useEphemeralMessages, type MensajeChat } from './useEphemeralMessages'
 
-function montarEphemeralMessages(ttlSegundos: number) {
+function montarEphemeralMessages(ttlSegundos: number, onQuitar?: (id: string) => void) {
   let composable!: ReturnType<typeof useEphemeralMessages>
   const wrapper = mount(
     defineComponent({
       setup() {
-        composable = useEphemeralMessages(ttlSegundos)
+        composable = useEphemeralMessages(ttlSegundos, onQuitar)
         return () => h('div')
       },
     }),
@@ -94,6 +94,16 @@ describe('useEphemeralMessages', () => {
     // desmontado).
     expect(() => vi.advanceTimersByTime(10_000)).not.toThrow()
     revocar.mockRestore()
+  })
+
+  it('onQuitar se llama con el id cuando un mensaje se autodestruye', () => {
+    const onQuitar = vi.fn()
+    const { composable } = montarEphemeralMessages(5, onQuitar)
+    composable.agregar(mensajeTexto({ id: 'm-1' }))
+
+    vi.advanceTimersByTime(5000)
+
+    expect(onQuitar).toHaveBeenCalledWith('m-1')
   })
 
   it('agregar un mensaje reproduce el sonido de notificacion', async () => {
